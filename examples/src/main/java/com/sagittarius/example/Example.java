@@ -271,13 +271,13 @@ public class Example {
         hosts.add("128290");
         List<String> metrics = new ArrayList<>();
         metrics.add("APP");
-        Map<String, List<DoublePoint>> result = reader.getDoublePoint(hosts, metrics, 1482319512851L);
-        for (Map.Entry<String, List<DoublePoint>> entry : result.entrySet()) {
-            System.out.println(entry.getKey());
-            for (DoublePoint point : entry.getValue()) {
-                System.out.println(point.getMetric() + " " + point.getPrimaryTime()+ " " + point.getValue());
-            }
-        }
+//        Map<String, List<DoublePoint>> result = reader.getDoublePoint(hosts, metrics, 1482319512851L);
+//        for (Map.Entry<String, List<DoublePoint>> entry : result.entrySet()) {
+//            System.out.println(entry.getKey());
+//            for (DoublePoint point : entry.getValue()) {
+//                System.out.println(point.getMetric() + " " + point.getPrimaryTime()+ " " + point.getValue());
+//            }
+//        }
     }
     private static void readLatest(Reader reader) {
         List<String> hosts = new ArrayList<>();
@@ -285,13 +285,13 @@ public class Example {
         hosts.add("128290");
         List<String> metrics = new ArrayList<>();
         metrics.add("APP");
-        Map<String, List<DoublePoint>> result = reader.getDoubleLatest(hosts, metrics);
-        for (Map.Entry<String, List<DoublePoint>> entry : result.entrySet()) {
-            System.out.println(entry.getKey());
-            for (DoublePoint point : entry.getValue()) {
-                System.out.println(point.getMetric() + " " + point.getPrimaryTime()+ " " + point.getValue());
-            }
-        }
+//        Map<String, List<DoublePoint>> result = reader.getDoubleLatest(hosts, metrics);
+//        for (Map.Entry<String, List<DoublePoint>> entry : result.entrySet()) {
+//            System.out.println(entry.getKey());
+//            for (DoublePoint point : entry.getValue()) {
+//                System.out.println(point.getMetric() + " " + point.getPrimaryTime()+ " " + point.getValue());
+//            }
+//        }
     }
     private static void readbyRange(Reader reader) {
         List<String> hosts = new ArrayList<>();
@@ -303,13 +303,13 @@ public class Example {
         metrics.add("APP");
         LocalDateTime start = LocalDateTime.of(1993,10,11,0,0);
         LocalDateTime end = LocalDateTime.of(1993,10,14,5,59);
-        Map<String, List<DoublePoint>> result = reader.getDoubleRange(hosts, metrics,start.toEpochSecond(TimeUtil.zoneOffset)*1000,end.toEpochSecond(TimeUtil.zoneOffset)*1000);
-        for (Map.Entry<String, List<DoublePoint>> entry : result.entrySet()) {
-            System.out.println(entry.getKey());
-            for (DoublePoint point : entry.getValue()) {
-                System.out.println(point.getMetric() + " " + point.getPrimaryTime()+" "+ LocalDateTime.ofEpochSecond(point.getPrimaryTime()/1000,0,TimeUtil.zoneOffset) + " " + point.getValue());
-            }
-        }
+//        Map<String, List<DoublePoint>> result = reader.getDoubleRange(hosts, metrics,start.toEpochSecond(TimeUtil.zoneOffset)*1000,end.toEpochSecond(TimeUtil.zoneOffset)*1000);
+//        for (Map.Entry<String, List<DoublePoint>> entry : result.entrySet()) {
+//            System.out.println(entry.getKey());
+//            for (DoublePoint point : entry.getValue()) {
+//                System.out.println(point.getMetric() + " " + point.getPrimaryTime()+" "+ LocalDateTime.ofEpochSecond(point.getPrimaryTime()/1000,0,TimeUtil.zoneOffset) + " " + point.getValue());
+//            }
+//        }
     }
 
     private static void readFuzzy(Reader reader) {
