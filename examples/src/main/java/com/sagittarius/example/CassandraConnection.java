@@ -11,7 +11,7 @@ import java.util.List;
 public class CassandraConnection {
 
     private static final Logger logger = LoggerFactory.getLogger(CassandraConnection.class);
-    private static String[] cassandraNodes = new String[]{"192.168.3.17","192.168.3.19","192.168.3.21","192.168.3.23","192.168.3.25"};
+    private static String[] cassandraNodes = new String[]{"192.168.15.114","192.168.15.115","192.168.15.118","192.168.15.119","192.168.15.120","192.168.15.121"};
 //    private static String[] cassandraNodes = new String[]{"192.168.3.52"};
     private static int cassandraPort = 9042;
     private static CassandraConnection cassandraConnection = null;
@@ -36,10 +36,10 @@ public class CassandraConnection {
 
         PoolingOptions poolingOptions = new PoolingOptions();
         poolingOptions
-                .setConnectionsPerHost(HostDistance.LOCAL, 3, 10)
-                .setConnectionsPerHost(HostDistance.REMOTE, 3, 10)
-                .setMaxRequestsPerConnection(HostDistance.LOCAL, 4096)
-                .setMaxRequestsPerConnection(HostDistance.REMOTE, 4096)
+                .setConnectionsPerHost(HostDistance.LOCAL, 10, 20)
+                .setConnectionsPerHost(HostDistance.REMOTE, 10, 20)
+                .setMaxRequestsPerConnection(HostDistance.LOCAL, 10240)
+                .setMaxRequestsPerConnection(HostDistance.REMOTE, 10240)
                 .setHeartbeatIntervalSeconds(0);
 
         SocketOptions socketOptions = new SocketOptions();
@@ -53,10 +53,12 @@ public class CassandraConnection {
                 logger.error("ip or port has something wrong：{}", e.getMessage());
             }
         }
+        QueryOptions queryOptions = new QueryOptions().setConsistencyLevel(ConsistencyLevel.LOCAL_QUORUM);
+
 
         cluster = Cluster.builder().addContactPointsWithPorts(addresses)
                 .withPoolingOptions(poolingOptions)
-               // .withSocketOptions(socketOptions)
+                .withQueryOptions(queryOptions)
                 .build();
 
         try {

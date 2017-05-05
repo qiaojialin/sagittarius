@@ -6,57 +6,71 @@ import com.datastax.spark.connector.japi.rdd.CassandraTableScanJavaRDD;
 import com.sagittarius.bean.common.MetricMetadata;
 import com.sagittarius.bean.common.TimePartition;
 import com.sagittarius.bean.common.ValueType;
+import com.sagittarius.bean.query.AggregationType;
 import com.sagittarius.bean.query.Shift;
 import com.sagittarius.bean.result.DoublePoint;
 import com.sagittarius.bean.result.FloatPoint;
+import com.sagittarius.bean.result.IntPoint;
+import com.sagittarius.bean.result.StringPoint;
 import com.sagittarius.core.SagittariusClient;
+import com.sagittarius.exceptions.NoHostAvailableException;
+import com.sagittarius.exceptions.QueryExecutionException;
+import com.sagittarius.exceptions.SparkException;
+import com.sagittarius.exceptions.TimeoutException;
 import com.sagittarius.read.Reader;
 import com.sagittarius.read.SagittariusReader;
 import com.sagittarius.util.TimeUtil;
+import com.sagittarius.write.SagittariusWriter;
 import com.sagittarius.write.Writer;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import scala.Tuple22;
 
+import java.io.*;
+import java.text.ParseException;
 import java.time.LocalDateTime;
 import java.util.*;
 
 import static com.datastax.spark.connector.japi.CassandraJavaUtil.javaFunctions;
+import static java.lang.System.exit;
+import static java.lang.System.setOut;
 
 
 public class Example {
     private static final Logger logger = LoggerFactory.getLogger(Example.class);
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         CassandraConnection connection = CassandraConnection.getInstance();
         Cluster cluster = connection.getCluster();
 
-        long time = System.currentTimeMillis();
-
         SparkConf sparkConf = new SparkConf();
-        sparkConf.setMaster("spark://192.168.3.17:7077").setAppName("test");
+//        sparkConf.setMaster("spark://192.168.3.17:7077").setAppName("test");
+        sparkConf.setMaster("spark://192.168.15.116:7077").setAppName("kmxtest");
         //to fix the can't assign from .. to .. Error
-        //String[] jars = {"examples-1.0-SNAPSHOT-jar-with-dependencies.jar"};
-        //sparkConf.setJars(jars);
-        sparkConf.set("spark.cassandra.connection.host", "192.168.3.17");
+        String[] jars = {"examples-1.0-SNAPSHOT-jar-with-dependencies.jar"};
+        sparkConf.setJars(jars);
+        sparkConf.set("spark.cassandra.connection.host", "192.168.15.114");
         sparkConf.set("spark.cassandra.connection.port", "9042");
         sparkConf.set("spark.cassandra.connection.keep_alive_ms", "600000");
+        sparkConf.set("spark.driver.host","192.168.15.123");
+
         //sparkConf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
         //sparkConf.set("spark.kryoserializer.buffer.max", "512m");
-        sparkConf.set("spark.executor.extraJavaOptions", "-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/home/agittarius/");
+        //sparkConf.set("spark.executor.extraJavaOptions", "-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/home/agittarius/");
         //sparkConf.set("spark.scheduler.mode", "FAIR");
         //sparkConf.set("spark.executor.cores", "4");
-        sparkConf.set("spark.cores.max", "20");
+//        sparkConf.set("spark.cores.max", "20");
         //sparkConf.set("spark.driver.maxResultSize", "20g");
         //sparkConf.set("spark.driver.memory", "20g");
-        sparkConf.set("spark.executor.memory", "1g");
-        SagittariusClient client = new SagittariusClient(cluster, sparkConf, 10000, 3000, Integer.parseInt(args[2]));
-        Writer writer = client.getWriter();
+//        sparkConf.set("spark.executor.memory", "2g");
+        SagittariusClient client = new SagittariusClient(cluster, sparkConf, 10000);
+        SagittariusWriter writer = (SagittariusWriter) client.getWriter();
         SagittariusReader reader = (SagittariusReader)client.getReader();
-        ReadTask task1 = new ReadTask(reader, time, "value >= 33 and value <= 34");
-        ReadTask task2 = new ReadTask(reader, time, "value >= 34 and value <= 35");
-        ReadTask task3 = new ReadTask(reader, time, "value >= 35 and value <= 36");
+//        ReadTask task1 = new ReadTask(reader, time, "value >= 33 and value <= 34");
+//        ReadTask task2 = new ReadTask(reader, time, "value >= 34 and value <= 35");
+//        ReadTask task3 = new ReadTask(reader, time, "value >= 35 and value <= 36");
         //batchTest(writer, Integer.parseInt(args[0]), Integer.parseInt(args[1]));
         //batchTest1(client, Integer.parseInt(args[0]), Integer.parseInt(args[1]));
         //insert(writer);
@@ -66,8 +80,8 @@ public class Example {
         //test(client.getSparkContext());
         //floatRead(reader);
         //insert(writer);
-        //TestTask testTask = new TestTask(reader);
-        //testTask.start();
+//        TestTask testTask = new TestTask(reader);
+//        testTask.start();
         //floatRead(reader);
         //logger.info("consume time: " + (System.currentTimeMillis() - time) + "ms");
         //registerHostMetricInfo(writer);
@@ -83,31 +97,46 @@ public class Example {
         //readbyRange(reader);
         //readFuzzy(reader);
         //floatRead(reader);
-        //exit(0);
+//        test(reader);
+//        int threads = Integer.valueOf(args[0]);
+//        int batchSize = Integer.valueOf(args[1]);
+//        String directory = args[2];
+//        batchWriteBigData3(writer, threads, batchSize, directory);
+
+        floatRead(reader);
+
+        exit(0);
 
     }
 
-    public static void test(JavaSparkContext sparkContext) {
-        long time = System.currentTimeMillis();
-        /*Map<String, String> map = new HashMap<>();
-        map.put("keyspace", "sagittarius");
-        map.put("table", "data_float");
-        SQLContext sqlContext = new SQLContext(sparkContext);
-        Dataset<Row> dataset = sqlContext.read().format("org.apache.spark.sql.cassandra").options(map).load().filter("value >= 33 and value <= 34");
+    public static void test(Reader reader) {
+        ArrayList<String> hosts = new ArrayList<>();
+        hosts.add("128275");
+        hosts.add("128579");
+        hosts.add("128932");
+        hosts.add("128933");
+        hosts.add("128934");
+        ArrayList<String> metrics = new ArrayList<>();
+        metrics.add("当前转速下发动机负载百分比");
+        metrics.add("实际发动机扭矩百分比");
+        metrics.add("发动机转速");
+        metrics.add("高精度总里程(00)");
+        metrics.add("总发动机怠速使用燃料");
 
-        //dataset.filter(dataset.apply("value").$greater(33));
-        //dataset.apply("").
-        //dataset = dataset.filter("value >= 33 and value <= 34");
-        //dataset = dataset.selectExpr("host");
-        dataset.explain();
-        System.out.println(dataset.count());
+    }
 
-        System.out.println("consume time :" + (System.currentTimeMillis() - time));*/
-        CassandraTableScanJavaRDD<CassandraRow> rdd = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_float");
-        //JavaRDD<CassandraRow> rdd1 = rdd.filter(r -> r.getFloat("value") >= 33 && r.getFloat("value") <= 34);
-        rdd.collect();
-
-        System.out.println("consume time :" + (System.currentTimeMillis() - time) + " ");
+    private static void IntRead(Reader reader){
+        ArrayList<String> hosts = new ArrayList<>();
+        hosts.add("clihost");
+        ArrayList<String> metrics = new ArrayList<>();
+        metrics.add("climetric");
+        Map<String, Map<String, IntPoint>> result = null;
+        try {
+            result = reader.getIntPoint(hosts, metrics, 1000);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        System.out.println(result.get("clihost").get("climetric").getValue());
     }
 
     private static void floatRead(Reader reader){
@@ -115,11 +144,17 @@ public class Example {
         hosts.add("128998");
         ArrayList<String> metrics = new ArrayList<>();
         metrics.add("发动机转速");
-        long start = LocalDateTime.of(2017,2,20,0,0).toEpochSecond(TimeUtil.zoneOffset)*1000;
-        long end = LocalDateTime.of(2017,2,27,23,59).toEpochSecond(TimeUtil.zoneOffset)*1000;
+        long start = LocalDateTime.of(2016,6,10,0,0).toEpochSecond(TimeUtil.zoneOffset)*1000;
+        long end = LocalDateTime.of(2016,6,20,23,59).toEpochSecond(TimeUtil.zoneOffset)*1000;
         String filter = "value >= 33 and value <= 34";
-        Map<String, Map<String, List<FloatPoint>>> result = reader.getFloatRange(hosts, metrics, start, end, filter);
-        System.out.println(result.get("128998").get("发动机转速").size());
+        Map<String, Map<String, Double>> result = null;
+        System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+        try {
+            result = reader.getFloatRange(hosts, metrics, start, end, null, AggregationType.COUNT);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        System.out.println(result.get("128998").get("发动机转速"));
     }
 
     private static void batchTest1(SagittariusClient client, int threads, int runTime) {
@@ -271,13 +306,15 @@ public class Example {
         hosts.add("128290");
         List<String> metrics = new ArrayList<>();
         metrics.add("APP");
-//        Map<String, List<DoublePoint>> result = reader.getDoublePoint(hosts, metrics, 1482319512851L);
-//        for (Map.Entry<String, List<DoublePoint>> entry : result.entrySet()) {
-//            System.out.println(entry.getKey());
-//            for (DoublePoint point : entry.getValue()) {
-//                System.out.println(point.getMetric() + " " + point.getPrimaryTime()+ " " + point.getValue());
-//            }
-//        }
+        Map<String, Map<String, DoublePoint>> result = null;
+        try {
+            result = reader.getDoublePoint(hosts, metrics, 1482319512851L);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        for (Map.Entry<String, Map<String, DoublePoint>> entry : result.entrySet()) {
+            //
+        }
     }
     private static void readLatest(Reader reader) {
         List<String> hosts = new ArrayList<>();
@@ -285,13 +322,15 @@ public class Example {
         hosts.add("128290");
         List<String> metrics = new ArrayList<>();
         metrics.add("APP");
-//        Map<String, List<DoublePoint>> result = reader.getDoubleLatest(hosts, metrics);
-//        for (Map.Entry<String, List<DoublePoint>> entry : result.entrySet()) {
-//            System.out.println(entry.getKey());
-//            for (DoublePoint point : entry.getValue()) {
-//                System.out.println(point.getMetric() + " " + point.getPrimaryTime()+ " " + point.getValue());
-//            }
-//        }
+        Map<String, Map<String, DoublePoint>> result = null;
+        try {
+            result = reader.getDoubleLatest(hosts, metrics);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        for (Map.Entry<String, Map<String, DoublePoint>> entry : result.entrySet()) {
+            //
+        }
     }
     private static void readbyRange(Reader reader) {
         List<String> hosts = new ArrayList<>();
@@ -303,22 +342,27 @@ public class Example {
         metrics.add("APP");
         LocalDateTime start = LocalDateTime.of(1993,10,11,0,0);
         LocalDateTime end = LocalDateTime.of(1993,10,14,5,59);
-//        Map<String, List<DoublePoint>> result = reader.getDoubleRange(hosts, metrics,start.toEpochSecond(TimeUtil.zoneOffset)*1000,end.toEpochSecond(TimeUtil.zoneOffset)*1000);
-//        for (Map.Entry<String, List<DoublePoint>> entry : result.entrySet()) {
-//            System.out.println(entry.getKey());
-//            for (DoublePoint point : entry.getValue()) {
-//                System.out.println(point.getMetric() + " " + point.getPrimaryTime()+" "+ LocalDateTime.ofEpochSecond(point.getPrimaryTime()/1000,0,TimeUtil.zoneOffset) + " " + point.getValue());
-//            }
-//        }
+        Map<String, Map<String, List<DoublePoint>>> result = null;
+        try {
+            result = reader.getDoubleRange(hosts, metrics,start.toEpochSecond(TimeUtil.zoneOffset)*1000,end.toEpochSecond(TimeUtil.zoneOffset)*1000, false);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        for (Map.Entry<String, Map<String, List<DoublePoint>>> entry : result.entrySet()) {
+            //
+        }
     }
 
     private static void readFuzzy(Reader reader) {
 
         String host="128280";
         String metric="APP";
-        DoublePoint point =  reader.getFuzzyDoublePoint(host,metric,1483712410000L, Shift.NEAREST);
-        System.out.println(point.getMetric() + " " + point.getPrimaryTime() + " " + point.getValue());
-
+        DoublePoint point = null;
+        try {
+            point = reader.getFuzzyDoublePoint(host,metric,1483712410000L, Shift.NEAREST);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private static void insertLoop(Writer writer) {
@@ -327,7 +371,11 @@ public class Example {
         System.out.println("插入");
         while (!start.isAfter(end)) {
             double value=Math.random()*100;
-            writer.insert("1282835", "APP", start.toEpochSecond(TimeUtil.zoneOffset)*1000, start.toEpochSecond(TimeUtil.zoneOffset)*1000, TimePartition.DAY,value );
+            try {
+                writer.insert("1282835", "APP", start.toEpochSecond(TimeUtil.zoneOffset)*1000, start.toEpochSecond(TimeUtil.zoneOffset)*1000, TimePartition.DAY,value );
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
             System.out.println("APP" + " " + start.toEpochSecond(TimeUtil.zoneOffset)*1000+" "+ start.toString()+ " " + value);
             start = start.plusHours(6);
         }
@@ -339,8 +387,12 @@ public class Example {
         System.out.println(time1);
         System.out.println(time2);
         //for (int i = 0; i < 3000; ++i) {
+        try {
             writer.insert("128280", "APP", time1, -1, TimePartition.DAY, 10l);
-            ++time1;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        ++time1;
         //}
         logger.info("" + (System.currentTimeMillis() - time1));
         /*long start = System.currentTimeMillis();
@@ -368,7 +420,11 @@ public class Example {
         }
         for (String host : hosts) {
             long time = System.currentTimeMillis();
-            writer.registerHostMetricInfo(host, metricMetadatas);
+            try {
+                writer.registerHostMetricInfo(host, metricMetadatas);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
             logger.info("consume time: " + (System.currentTimeMillis() - time) + "ms");
         }
     }
@@ -376,6 +432,326 @@ public class Example {
     private static void registerHostTags(Writer writer) {
         Map<String, String> tags = new HashMap<>();
         tags.put("price", "¥.10000");
-        writer.registerHostTags("128280", tags);
+        try {
+            writer.registerHostTags("128280", tags);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static float myParseFloat(String d){
+        if(d.equals("")){
+            return -1;
+        }
+        else {
+            return Float.parseFloat(d);
+        }
+    }
+
+//    private static void batchWriteBigData(SagittariusWriter writer, int threads, int batchSize, String directoryPath) throws IOException {
+//
+//        List<String> metricNames = new ArrayList<>();
+//        metricNames.add("加速踏板位置1");
+//        metricNames.add("当前转速下发动机负载百分比");
+//        metricNames.add("实际发动机扭矩百分比");
+//        metricNames.add("发动机转速");
+//        metricNames.add("高精度总里程(00)");
+//        metricNames.add("总发动机怠速使用燃料");
+//        metricNames.add("后处理1排气质量流率");
+//        metricNames.add("总发动机操作时间");
+//        metricNames.add("总发动机使用的燃油");
+//        metricNames.add("发动机冷却液温度");
+//        metricNames.add("基于车轮的车辆速度");
+//        metricNames.add("发动机燃料消耗率");
+//        metricNames.add("大气压力");
+//        metricNames.add("发动机进气歧管1压力");
+//        metricNames.add("发动机进气歧管1温度");
+//        metricNames.add("发动机进气压力");
+//        metricNames.add("车速");
+//        metricNames.add("发动机扭矩模式");
+//        metricNames.add("大气温度");
+//        metricNames.add("发动机进气温度");
+//        metricNames.add("高精度总里程(EE)");
+//        metricNames.add("后处理1进气氮氧化物浓度");
+//
+//        //a map to store all datas
+//        HashMap<String, ArrayList<Tuple22<FloatPoint,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,String,Float,Float,Float,Float>>> map = new HashMap<>();
+//
+//        //get all data files
+//        File[] fileList = new File(directoryPath).listFiles(new FileFilter() {
+//            @Override
+//            public boolean accept(File pathname) {
+//                if (pathname.getName().endsWith(".csv"))
+//                    return true;
+//                return false;
+//            }
+//        });
+//        System.out.println("the number of files = " + fileList.length);
+//
+//        //put every file's data into map
+//        for (File file : fileList){
+//            BufferedReader bf = new BufferedReader(new InputStreamReader(new FileInputStream(file)));
+//            //skip the first line
+//            String line = bf.readLine();
+//            String host = "";
+//            //array to store data lines
+//            ArrayList<Tuple22<Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,String,Float,Float,Float,Float>> rowDataSets = new ArrayList<>();
+//            while ((line = bf.readLine()) != null){
+//                String[] row = line.split(",", -1);
+//                host = row[0];
+//                try {
+//                    long primaryTime = TimeUtil.string2Date(row[1], TimeUtil.dateFormat1);
+//                    long secondaryTime = TimeUtil.string2Date(row[2], TimeUtil.dateFormat1);
+//                } catch (Exception e) {
+//                    continue;
+//                }
+//
+//                Tuple22<Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,String,Float,Float,Float,Float> rowData =
+//                        new Tuple22<>(myParseFloat(row[3]),myParseFloat(row[4]),myParseFloat(row[5]),myParseFloat(row[6]),myParseFloat(row[7]),
+//                                myParseFloat(row[8]),myParseFloat(row[9]),myParseFloat(row[10]),myParseFloat(row[11]),
+//                                myParseFloat(row[12]),myParseFloat(row[13]),myParseFloat(row[14]),myParseFloat(row[15]),
+//                                myParseFloat(row[16]),myParseFloat(row[17]),myParseFloat(row[18]),myParseFloat(row[19]),
+//                                row[20],myParseFloat(row[21]),myParseFloat(row[22]),myParseFloat(row[23]),myParseFloat(row[24]));
+//                rowDataSets.add(rowData);
+//            }
+//            if(map.containsKey(host)){
+//                rowDataSets.addAll(map.get(host));
+//                map.put(host,rowDataSets);
+//            }
+//            else {
+//                map.put(host,rowDataSets);
+//            }
+//        }
+//
+//        System.out.println("put all data into map");
+//        Set<String> hosts = map.keySet();
+//        System.out.println("the number of hosts = " + hosts.size());
+//        List<BatchWriteBigDataTask> tasks = new ArrayList<>();
+//        long start = System.currentTimeMillis();
+//        for(int i = 0; i < threads; i++){
+//            BatchWriteBigDataTask task = new BatchWriteBigDataTask(writer, i, batchSize, metricNames, map);
+//            task.start();
+//            tasks.add(task);
+//        }
+//        long end = System.currentTimeMillis();
+//        System.out.println("time : " + (end-start));
+//
+//        long sumer = 0;
+//        while (true){
+//            try {
+//                Thread.sleep(60000);
+//            }catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
+//            for (BatchWriteBigDataTask task : tasks) {
+//                sumer += task.getThrought();
+//            }
+//            System.out.println(sumer/60);
+//            sumer = 0;
+//        }
+//    }
+
+    private static void batchWriteBigData2(SagittariusWriter writer, int threads, int batchSize, String directoryPath) throws IOException {
+
+        List<String> metricNames = new ArrayList<>();
+        metricNames.add("加速踏板位置1");
+        metricNames.add("当前转速下发动机负载百分比");
+        metricNames.add("实际发动机扭矩百分比");
+        metricNames.add("发动机转速");
+        metricNames.add("高精度总里程(00)");
+        metricNames.add("总发动机怠速使用燃料");
+        metricNames.add("后处理1排气质量流率");
+        metricNames.add("总发动机操作时间");
+        metricNames.add("总发动机使用的燃油");
+        metricNames.add("发动机冷却液温度");
+        metricNames.add("基于车轮的车辆速度");
+        metricNames.add("发动机燃料消耗率");
+        metricNames.add("大气压力");
+        metricNames.add("发动机进气歧管1压力");
+        metricNames.add("发动机进气歧管1温度");
+        metricNames.add("发动机进气压力");
+        metricNames.add("车速");
+        metricNames.add("发动机扭矩模式");
+        metricNames.add("大气温度");
+        metricNames.add("发动机进气温度");
+        metricNames.add("高精度总里程(EE)");
+        metricNames.add("后处理1进气氮氧化物浓度");
+
+        //a map to store all datas
+        HashMap<String, ArrayList<Tuple22<FloatPoint,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,String,Float,Float,Float,Float>>> map = new HashMap<>();
+
+        //get all data files
+        File[] fileList = new File(directoryPath).listFiles(new FileFilter() {
+            @Override
+            public boolean accept(File pathname) {
+                if (pathname.getName().endsWith(".csv"))
+                    return true;
+                return false;
+            }
+        });
+        System.out.println("the number of files = " + fileList.length);
+
+        //put every file's data into map
+        for (File file : fileList){
+            BufferedReader bf = new BufferedReader(new InputStreamReader(new FileInputStream(file)));
+            //skip the first line
+            String line = bf.readLine();
+            String host = "";
+            //array to store data lines
+            ArrayList<Tuple22<FloatPoint,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,String,Float,Float,Float,Float>> rowDataSets = new ArrayList<>();
+            while ((line = bf.readLine()) != null){
+                String[] row = line.split(",", -1);
+                host = row[0];
+                long primaryTime, secondaryTime;
+                try {
+                    primaryTime = TimeUtil.string2Date(row[1]);
+                    secondaryTime = TimeUtil.string2Date(row[2]);
+                } catch (Exception e) {
+                    System.out.println(file.getCanonicalPath());
+                    continue;
+                }
+
+                Tuple22<FloatPoint,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,String,Float,Float,Float,Float> rowData =
+                        new Tuple22<>(
+                                new FloatPoint(metricNames.get(0), primaryTime, secondaryTime, myParseFloat(row[3])),
+                                myParseFloat(row[4]),
+                                myParseFloat(row[5]),
+                                myParseFloat(row[6]),
+                                myParseFloat(row[7]),
+                                myParseFloat(row[8]),
+                                myParseFloat(row[9]),
+                                myParseFloat(row[10]),
+                                myParseFloat(row[11]),
+                                myParseFloat(row[12]),
+                                myParseFloat(row[13]),
+                                myParseFloat(row[14]),
+                                myParseFloat(row[15]),
+                                myParseFloat(row[16]),
+                                myParseFloat(row[17]),
+                                myParseFloat(row[18]),
+                                myParseFloat(row[19]),
+                                row[20],
+                                myParseFloat(row[21]),
+                                myParseFloat(row[22]),
+                                myParseFloat(row[23]),
+                                myParseFloat(row[24]));
+                rowDataSets.add(rowData);
+            }
+            if(map.containsKey(host)){
+                rowDataSets.addAll(map.get(host));
+                map.put(host,rowDataSets);
+            }
+            else {
+                map.put(host,rowDataSets);
+            }
+        }
+
+        System.out.println("put all data into map");
+        Set<String> hosts = map.keySet();
+        System.out.println("the number of hosts = " + hosts.size());
+        List<BatchWriteBigDataTask> tasks = new ArrayList<>();
+        long start = System.currentTimeMillis();
+        for(int i = 0; i < threads; i++){
+            BatchWriteBigDataTask task = new BatchWriteBigDataTask(writer, i, batchSize, metricNames, map);
+            task.start();
+            tasks.add(task);
+        }
+        long end = System.currentTimeMillis();
+        System.out.println("time : " + (end-start));
+
+        long sumer = 0;
+        long recorder = sumer;
+        while (true){
+            try {
+                Thread.sleep(60000);
+            }catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            for (BatchWriteBigDataTask task : tasks) {
+                sumer += task.getThrought();
+            }
+            System.out.println("whentimeis " + TimeUtil.date2String(System.currentTimeMillis(), TimeUtil.dateFormat1) + ", " + (sumer-recorder)/60);
+            recorder = sumer;
+            sumer = 0;
+        }
+    }
+
+    private static void batchWriteBigData3(SagittariusWriter writer, int threads, int batchSize, String directoryPath) throws IOException {
+
+        List<Long> times = new ArrayList<>();
+        //get all data files
+        File[] fileList = new File(directoryPath).listFiles(new FileFilter() {
+            @Override
+            public boolean accept(File pathname) {
+                if (pathname.getName().endsWith(".csv"))
+                    return true;
+                return false;
+            }
+        });
+        System.out.println("the number of files = " + fileList.length);
+        long time1 = 0;
+        try {
+            time1 = TimeUtil.string2Date("2016-06-02 00:00:00");
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        long time2 = 0;
+        try {
+            time2 = TimeUtil.string2Date("2016-06-05 00:00:00");
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        //put every file's data into map
+        for (File file : fileList){
+            BufferedReader bf = new BufferedReader(new InputStreamReader(new FileInputStream(file)));
+            //skip the first line
+            String line = bf.readLine();
+
+            //array to store data lines
+             while ((line = bf.readLine()) != null) {
+                String[] row = line.split(",", -1);
+                long primaryTime;
+                try {
+                    primaryTime = TimeUtil.string2Date(row[1]);
+                } catch (Exception e) {
+                    System.out.println(file.getCanonicalPath());
+                    continue;
+                }
+                if(primaryTime >= time1 && primaryTime < time2){
+                    times.add(primaryTime);
+                }
+            }
+
+
+
+        }
+
+        System.out.println(times.size());
+
+        times.sort(new Comparator<Long>() {
+            @Override
+            public int compare(Long o1, Long o2) {
+                return o1.compareTo(o2);
+            }
+        });
+
+        long temp = 0;
+        long max = 0;
+        long tempTime = times.get(0);
+        for(int i = 1; i < times.size(); i++){
+            if(times.get(i) == tempTime){
+                temp += 1;
+            }
+            else {
+                tempTime = times.get(i);
+                max = temp > max ? temp : max;
+                temp = 0;
+            }
+        }
+
+        System.out.println(max);
+
+        System.out.println("put all data into map");
+
     }
 }

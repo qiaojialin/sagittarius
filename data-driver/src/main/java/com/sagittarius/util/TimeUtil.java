@@ -1,13 +1,17 @@
 package com.sagittarius.util;
 
 import com.sagittarius.bean.common.TimePartition;
+import javafx.scene.input.DataFormat;
+import org.apache.commons.net.ntp.TimeStamp;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
 import java.util.Date;
+import java.sql.Timestamp;
 
 import static java.time.temporal.ChronoField.ALIGNED_WEEK_OF_YEAR;
 
@@ -36,7 +40,20 @@ public class TimeUtil {
         return sdf.format(new Date(date));
     }
 
-    public static long string2Date(String time, SimpleDateFormat sdf) throws ParseException {
-        return sdf.parse(time).getTime();
+    public static long string2Date(String time, SimpleDateFormat sdf) throws ParseException, NumberFormatException {
+        long result;
+        try{
+            result = sdf.parse(time).getTime();
+        } catch (Exception e){
+            result = -1;
+        }
+
+        return result;
+    }
+
+    public static long string2Date(String time) throws ParseException, NumberFormatException {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        long primaryTime = java.sql.Timestamp.valueOf(LocalDateTime.parse(time, formatter)).getTime();
+        return primaryTime;
     }
 }
