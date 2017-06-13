@@ -5,6 +5,7 @@ import com.sagittarius.bean.common.TimePartition;
 import com.sagittarius.exceptions.NoHostAvailableException;
 import com.sagittarius.exceptions.QueryExecutionException;
 import com.sagittarius.exceptions.TimeoutException;
+import com.sagittarius.exceptions.UnregisteredHostMetricException;
 
 import java.util.List;
 import java.util.Map;
@@ -44,6 +45,8 @@ public interface Writer {
      */
     void insert(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, int value) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
+    void insert(String host, String metric, long primaryTime, long secondaryTime, int value) throws NoHostAvailableException, TimeoutException, QueryExecutionException, UnregisteredHostMetricException;
+
     /**
      * insert a metric data point info whose metric value type is LONG.
      * there are two time parameters: primaryTime and secondaryTime.
@@ -61,6 +64,8 @@ public interface Writer {
      * @param value the metric value
      */
     void insert(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, long value) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
+
+    void insert(String host, String metric, long primaryTime, long secondaryTime, long value) throws NoHostAvailableException, TimeoutException, QueryExecutionException, UnregisteredHostMetricException;
 
     /**
      * insert a metric data point info whose metric value type is FLOAT.
@@ -80,6 +85,8 @@ public interface Writer {
      */
     void insert(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, float value) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
+    void insert(String host, String metric, long primaryTime, long secondaryTime, float value) throws NoHostAvailableException, TimeoutException, QueryExecutionException, UnregisteredHostMetricException;
+
     /**
      * insert a metric data point info whose metric value type is DOUBLE.
      * there are two time parameters: primaryTime and secondaryTime.
@@ -97,6 +104,8 @@ public interface Writer {
      * @param value the metric value
      */
     void insert(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, double value) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
+
+    void insert(String host, String metric, long primaryTime, long secondaryTime, double value) throws NoHostAvailableException, TimeoutException, QueryExecutionException, UnregisteredHostMetricException;
 
     /**
      * insert a metric data point info whose metric value type is BOOLEAN.
@@ -116,6 +125,8 @@ public interface Writer {
      */
     void insert(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, boolean value) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
+    void insert(String host, String metric, long primaryTime, long secondaryTime, boolean value) throws NoHostAvailableException, TimeoutException, QueryExecutionException, UnregisteredHostMetricException;
+
     /**
      * insert a metric data point info whose metric value type is STRING.
      * there are two time parameters: primaryTime and secondaryTime.
@@ -133,6 +144,8 @@ public interface Writer {
      * @param value the metric value
      */
     void insert(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, String value) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
+
+    void insert(String host, String metric, long primaryTime, long secondaryTime, String value) throws NoHostAvailableException, TimeoutException, QueryExecutionException, UnregisteredHostMetricException;
 
     /**
      * insert a metric data point info whose metric value type is GEO.
@@ -153,6 +166,8 @@ public interface Writer {
      * @param longitude longitude value
      */
     void insert(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, float latitude, float longitude) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
+
+    void insert(String host, String metric, long primaryTime, long secondaryTime, float latitude, float longitude) throws NoHostAvailableException, TimeoutException, QueryExecutionException, UnregisteredHostMetricException;
 
     void insert(String host, String metric, long timeSlice, double maxValue, double minValue, double countValue, double sumValue) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 

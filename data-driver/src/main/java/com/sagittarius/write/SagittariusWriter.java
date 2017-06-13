@@ -8,12 +8,15 @@ import com.datastax.driver.mapping.Mapper;
 import com.datastax.driver.mapping.MappingManager;
 import com.sagittarius.bean.common.*;
 import com.sagittarius.bean.table.*;
+import com.sagittarius.cache.Cache;
 import com.sagittarius.exceptions.*;
 import com.sagittarius.read.internals.QueryStatement;
 import com.sagittarius.util.TimeUtil;
 import com.sagittarius.write.internals.RecordAccumulator;
 import com.sagittarius.write.internals.Sender;
+import com.sun.scenario.effect.impl.sw.sse.SSEBlend_SRC_OUTPeer;
 
+import javax.swing.plaf.synth.SynthOptionPaneUI;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -23,6 +26,7 @@ import static com.datastax.driver.mapping.Mapper.Option.timestamp;
 public class SagittariusWriter implements Writer {
     private Session session;
     private MappingManager mappingManager;
+    private Cache<HostMetricPair, TypePartitionPair> cache;
     private RecordAccumulator accumulator;
     private Sender sender;
     private boolean autoBatch;
@@ -51,9 +55,10 @@ public class SagittariusWriter implements Writer {
     private PreparedStatement deleteBooleanStatement;
     private PreparedStatement deleteGeoStatement;
 
-    public SagittariusWriter(Session session, MappingManager mappingManager) {
+    public SagittariusWriter(Session session, MappingManager mappingManager, Cache<HostMetricPair, TypePartitionPair> cache) {
         this.session = session;
         this.mappingManager = mappingManager;
+        this.cache = cache;
         this.autoBatch = false;
         preIntStatement = session.prepare("insert into data_int (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
         preLongStatement = session.prepare("insert into data_long (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
@@ -92,6 +97,33 @@ public class SagittariusWriter implements Writer {
         this.autoBatch = true;
         Thread sendThread = new Thread(sender);
         sendThread.start();
+        preIntStatement = session.prepare("insert into data_int (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
+        preLongStatement = session.prepare("insert into data_long (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
+        preFloatStatement = session.prepare("insert into data_float (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
+        preDoubleStatement = session.prepare("insert into data_double (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
+        preStringStatement = session.prepare("insert into data_text (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
+        preBooleanStatement = session.prepare("insert into data_boolean (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
+        preGeoStatement = session.prepare("insert into data_geo (host, metric, time_slice, primary_time, secondary_time, latitude, longitude) values (:host, :metric, :ts, :pt, :st, :la, :lo)");
+
+        preIntStatementWithoutST = session.prepare("insert into data_int (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
+        preLongStatementWithoutST = session.prepare("insert into data_long (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
+        preFloatStatementWithoutST = session.prepare("insert into data_float (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
+        preDoubleStatementWithoutST = session.prepare("insert into data_double (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
+        preStringStatementWithoutST = session.prepare("insert into data_text (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
+        preBooleanStatementWithoutST = session.prepare("insert into data_boolean (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
+        preGeoStatementWithoutST = session.prepare("insert into data_geo (host, metric, time_slice, primary_time, latitude, longitude) values (:host, :metric, :ts, :pt, :la, :lo)");
+
+        preLatestStatement = session.prepare("insert into latest (host, metric, time_slice) values (:host, :metric, :time_slice)");
+
+        preAggreStatement = session.prepare("insert into data_aggregation (host, metric, time_slice, max_value, min_value, count_value, sum_value) values (:host, :metric, :ts, :max, :min, :cnt, :sum)");
+
+        deleteIntStatement = session.prepare("delete from data_int where host = :h and metric = :m and time_slice = :t");
+        deleteLongStatement = session.prepare("delete from data_long where host = :h and metric = :m and time_slice = :t");
+        deleteFloatStatement = session.prepare("delete from data_float where host = :h and metric = :m and time_slice = :t");
+        deleteDoubleStatement = session.prepare("delete from data_double where host = :h and metric = :m and time_slice = :t");
+        deleteStringStatement = session.prepare("delete from data_text where host = :h and metric = :m and time_slice = :t");
+        deleteBooleanStatement = session.prepare("delete from data_boolean where host = :h and metric = :m and time_slice = :t");
+        deleteGeoStatement = session.prepare("delete from data_geo where host = :h and metric = :m and time_slice = :t");
     }
 
     public Data newData() {
@@ -117,20 +149,38 @@ public class SagittariusWriter implements Writer {
 
         public void addDatum(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, int value) {
             String timeSlice = TimeUtil.generateTimeSlice(primaryTime, timePartition);
-            Long boxedSecondaryTime = secondaryTime == -1 ? null : secondaryTime;
-            Mapper<IntData> dataMapper = mappingManager.mapper(IntData.class);
-            Statement statement = dataMapper.saveQuery(new IntData(host, metric, timeSlice, primaryTime, boxedSecondaryTime, value), timestamp(primaryTime * 1000), saveNullFields(false));
+            BoundStatement statement = secondaryTime == -1? preIntStatementWithoutST.bind(host, metric, timeSlice, primaryTime, value)
+                    : preIntStatement.bind(host, metric, timeSlice, primaryTime, secondaryTime, value);
             batchStatement.add(statement);
             updateLatest(new Latest(host, metric, timeSlice));
         }
 
+        public void addDatum(String host, String metric, long primaryTime, long secondaryTime, int value) throws UnregisteredHostMetricException {
+            HostMetric hostMetric = getHostMetric(host, metric);
+            if(hostMetric != null){
+                addDatum(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+            }
+            else {
+                throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
+            }
+        }
+
         public void addDatum(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, long value) {
             String timeSlice = TimeUtil.generateTimeSlice(primaryTime, timePartition);
-            Long boxedSecondaryTime = secondaryTime == -1 ? null : secondaryTime;
-            Mapper<LongData> dataMapper = mappingManager.mapper(LongData.class);
-            Statement statement = dataMapper.saveQuery(new LongData(host, metric, timeSlice, primaryTime, boxedSecondaryTime, value), timestamp(primaryTime * 1000), saveNullFields(false));
+            BoundStatement statement = secondaryTime == -1? preLongStatementWithoutST.bind(host, metric, timeSlice, primaryTime, value)
+                    : preLongStatement.bind(host, metric, timeSlice, primaryTime, secondaryTime, value);
             batchStatement.add(statement);
             updateLatest(new Latest(host, metric, timeSlice));
+        }
+
+        public void addDatum(String host, String metric, long primaryTime, long secondaryTime, long value) throws UnregisteredHostMetricException {
+            HostMetric hostMetric = getHostMetric(host, metric);
+            if(hostMetric != null){
+                addDatum(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+            }
+            else {
+                throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
+            }
         }
 
         public void addDatum(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, float value) {
@@ -141,38 +191,86 @@ public class SagittariusWriter implements Writer {
             updateLatest(new Latest(host, metric, timeSlice));
         }
 
+        public void addDatum(String host, String metric, long primaryTime, long secondaryTime, float value) throws UnregisteredHostMetricException {
+            HostMetric hostMetric = getHostMetric(host, metric);
+            if(hostMetric != null){
+                addDatum(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+            }
+            else {
+                throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
+            }
+        }
+
         public void addDatum(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, double value) {
             String timeSlice = TimeUtil.generateTimeSlice(primaryTime, timePartition);
-            BoundStatement statement = secondaryTime == -1? preDoubleStatement.bind(host, metric, timeSlice, primaryTime, value)
+            BoundStatement statement = secondaryTime == -1? preDoubleStatementWithoutST.bind(host, metric, timeSlice, primaryTime, value)
                     : preDoubleStatement.bind(host, metric, timeSlice, primaryTime, secondaryTime, value);
             batchStatement.add(statement);
             updateLatest(new Latest(host, metric, timeSlice));
         }
 
+        public void addDatum(String host, String metric, long primaryTime, long secondaryTime, double value) throws UnregisteredHostMetricException {
+            HostMetric hostMetric = getHostMetric(host, metric);
+            if(hostMetric != null){
+                addDatum(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+            }
+            else {
+                throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
+            }
+        }
+
         public void addDatum(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, boolean value) {
             String timeSlice = TimeUtil.generateTimeSlice(primaryTime, timePartition);
-            Long boxedSecondaryTime = secondaryTime == -1 ? null : secondaryTime;
-            Mapper<BooleanData> dataMapper = mappingManager.mapper(BooleanData.class);
-            Statement statement = dataMapper.saveQuery(new BooleanData(host, metric, timeSlice, primaryTime, boxedSecondaryTime, value), timestamp(primaryTime * 1000), saveNullFields(false));
+            BoundStatement statement = secondaryTime == -1? preBooleanStatementWithoutST.bind(host, metric, timeSlice, primaryTime, value)
+                    : preBooleanStatement.bind(host, metric, timeSlice, primaryTime, secondaryTime, value);
             batchStatement.add(statement);
             updateLatest(new Latest(host, metric, timeSlice));
         }
 
+        public void addDatum(String host, String metric, long primaryTime, long secondaryTime, boolean value) throws UnregisteredHostMetricException {
+            HostMetric hostMetric = getHostMetric(host, metric);
+            if(hostMetric != null){
+                addDatum(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+            }
+            else {
+                throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
+            }
+        }
+
         public void addDatum(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, String value) {
             String timeSlice = TimeUtil.generateTimeSlice(primaryTime, timePartition);
-            BoundStatement statement = secondaryTime == -1? preStringStatement.bind(host, metric, timeSlice, primaryTime, value)
+            BoundStatement statement = secondaryTime == -1? preStringStatementWithoutST.bind(host, metric, timeSlice, primaryTime, value)
                     : preStringStatement.bind(host, metric, timeSlice, primaryTime, secondaryTime, value);
             batchStatement.add(statement);
             updateLatest(new Latest(host, metric, timeSlice));
         }
 
+        public void addDatum(String host, String metric, long primaryTime, long secondaryTime, String value) throws UnregisteredHostMetricException {
+            HostMetric hostMetric = getHostMetric(host, metric);
+            if(hostMetric != null){
+                addDatum(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+            }
+            else {
+                throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
+            }
+        }
+
         public void addDatum(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, float latitude, float longitude) {
             String timeSlice = TimeUtil.generateTimeSlice(primaryTime, timePartition);
-            Long boxedSecondaryTime = secondaryTime == -1 ? null : secondaryTime;
-            Mapper<GeoData> dataMapper = mappingManager.mapper(GeoData.class);
-            Statement statement = dataMapper.saveQuery(new GeoData(host, metric, timeSlice, primaryTime, boxedSecondaryTime, latitude, longitude), timestamp(primaryTime * 1000), saveNullFields(false));
+            BoundStatement statement = secondaryTime == -1? preGeoStatementWithoutST.bind(host, metric, timeSlice, primaryTime, latitude, longitude)
+                    : preGeoStatement.bind(host, metric, timeSlice, primaryTime, secondaryTime, latitude, longitude);
             batchStatement.add(statement);
             updateLatest(new Latest(host, metric, timeSlice));
+        }
+
+        public void addDatum(String host, String metric, long primaryTime, long secondaryTime,  float latitude, float longitude) throws UnregisteredHostMetricException {
+            HostMetric hostMetric = getHostMetric(host, metric);
+            if(hostMetric != null){
+                addDatum(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), latitude, longitude);
+            }
+            else {
+                throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
+            }
         }
     }
 
@@ -221,7 +319,7 @@ public class SagittariusWriter implements Writer {
                 Long boxedSecondaryTime = secondaryTime == -1 ? null : secondaryTime;
                 Mapper<IntData> dataMapper = mappingManager.mapper(IntData.class);
                 Mapper<Latest> latestMapper = mappingManager.mapper(Latest.class);
-                dataMapper.save(new IntData(host, metric, timeSlice, primaryTime, boxedSecondaryTime, value), timestamp(primaryTime * 1000), saveNullFields(false));
+                dataMapper.save(new IntData(host, metric, timeSlice, primaryTime, boxedSecondaryTime, value), saveNullFields(false));
                 latestMapper.save(new Latest(host, metric, timeSlice), saveNullFields(false));
             }
         } catch (NoHostAvailableException e) {
@@ -230,6 +328,17 @@ public class SagittariusWriter implements Writer {
             throw new TimeoutException(e.getMessage(), e.getCause());
         } catch (QueryExecutionException e) {
             throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+        }
+    }
+
+    @Override
+    public void insert(String host, String metric, long primaryTime, long secondaryTime, int value) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, UnregisteredHostMetricException {
+        HostMetric hostMetric = getHostMetric(host, metric);
+        if(hostMetric != null){
+            insert(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+        }
+        else {
+            throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
         }
     }
 
@@ -243,7 +352,7 @@ public class SagittariusWriter implements Writer {
                 Long boxedSecondaryTime = secondaryTime == -1 ? null : secondaryTime;
                 Mapper<LongData> dataMapper = mappingManager.mapper(LongData.class);
                 Mapper<Latest> latestMapper = mappingManager.mapper(Latest.class);
-                dataMapper.save(new LongData(host, metric, timeSlice, primaryTime, boxedSecondaryTime, value), timestamp(primaryTime * 1000), saveNullFields(false));
+                dataMapper.save(new LongData(host, metric, timeSlice, primaryTime, boxedSecondaryTime, value), saveNullFields(false));
                 latestMapper.save(new Latest(host, metric, timeSlice), saveNullFields(false));
             }
         } catch (NoHostAvailableException e) {
@@ -252,6 +361,17 @@ public class SagittariusWriter implements Writer {
             throw new TimeoutException(e.getMessage(), e.getCause());
         } catch (QueryExecutionException e) {
             throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+        }
+    }
+
+    @Override
+    public void insert(String host, String metric, long primaryTime, long secondaryTime, long value) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, UnregisteredHostMetricException {
+        HostMetric hostMetric = getHostMetric(host, metric);
+        if(hostMetric != null){
+            insert(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+        }
+        else {
+            throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
         }
     }
 
@@ -265,7 +385,7 @@ public class SagittariusWriter implements Writer {
                 Long boxedSecondaryTime = secondaryTime == -1 ? null : secondaryTime;
                 Mapper<FloatData> dataMapper = mappingManager.mapper(FloatData.class);
                 Mapper<Latest> latestMapper = mappingManager.mapper(Latest.class);
-                dataMapper.save(new FloatData(host, metric, timeSlice, primaryTime, boxedSecondaryTime, value), timestamp(primaryTime * 1000), saveNullFields(false));
+                dataMapper.save(new FloatData(host, metric, timeSlice, primaryTime, boxedSecondaryTime, value), saveNullFields(false));
                 latestMapper.save(new Latest(host, metric, timeSlice), saveNullFields(false));
             }
         } catch (NoHostAvailableException e) {
@@ -274,6 +394,17 @@ public class SagittariusWriter implements Writer {
             throw new TimeoutException(e.getMessage(), e.getCause());
         } catch (QueryExecutionException e) {
             throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+        }
+    }
+
+    @Override
+    public void insert(String host, String metric, long primaryTime, long secondaryTime, float value) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, UnregisteredHostMetricException {
+        HostMetric hostMetric = getHostMetric(host, metric);
+        if(hostMetric != null){
+            insert(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+        }
+        else {
+            throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
         }
     }
 
@@ -287,7 +418,7 @@ public class SagittariusWriter implements Writer {
                 Long boxedSecondaryTime = secondaryTime == -1 ? null : secondaryTime;
                 Mapper<DoubleData> dataMapper = mappingManager.mapper(DoubleData.class);
                 Mapper<Latest> latestMapper = mappingManager.mapper(Latest.class);
-                dataMapper.save(new DoubleData(host, metric, timeSlice, primaryTime, boxedSecondaryTime, value), timestamp(primaryTime * 1000), saveNullFields(false));
+                dataMapper.save(new DoubleData(host, metric, timeSlice, primaryTime, boxedSecondaryTime, value), saveNullFields(false));
                 latestMapper.save(new Latest(host, metric, timeSlice), saveNullFields(false));
             }
         } catch (NoHostAvailableException e) {
@@ -296,6 +427,17 @@ public class SagittariusWriter implements Writer {
             throw new TimeoutException(e.getMessage(), e.getCause());
         } catch (QueryExecutionException e) {
             throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+        }
+    }
+
+    @Override
+    public void insert(String host, String metric, long primaryTime, long secondaryTime, double value) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, UnregisteredHostMetricException {
+        HostMetric hostMetric = getHostMetric(host, metric);
+        if(hostMetric != null){
+            insert(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+        }
+        else {
+            throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
         }
     }
 
@@ -309,7 +451,7 @@ public class SagittariusWriter implements Writer {
                 Long boxedSecondaryTime = secondaryTime == -1 ? null : secondaryTime;
                 Mapper<BooleanData> dataMapper = mappingManager.mapper(BooleanData.class);
                 Mapper<Latest> latestMapper = mappingManager.mapper(Latest.class);
-                dataMapper.save(new BooleanData(host, metric, timeSlice, primaryTime, boxedSecondaryTime, value), timestamp(primaryTime * 1000), saveNullFields(false));
+                dataMapper.save(new BooleanData(host, metric, timeSlice, primaryTime, boxedSecondaryTime, value), saveNullFields(false));
                 latestMapper.save(new Latest(host, metric, timeSlice), saveNullFields(false));
             }
         } catch (NoHostAvailableException e) {
@@ -318,6 +460,17 @@ public class SagittariusWriter implements Writer {
             throw new TimeoutException(e.getMessage(), e.getCause());
         } catch (QueryExecutionException e) {
             throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+        }
+    }
+
+    @Override
+    public void insert(String host, String metric, long primaryTime, long secondaryTime, boolean value) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, UnregisteredHostMetricException {
+        HostMetric hostMetric = getHostMetric(host, metric);
+        if(hostMetric != null){
+            insert(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+        }
+        else {
+            throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
         }
     }
 
@@ -331,7 +484,7 @@ public class SagittariusWriter implements Writer {
                 Long boxedSecondaryTime = secondaryTime == -1 ? null : secondaryTime;
                 Mapper<StringData> dataMapper = mappingManager.mapper(StringData.class);
                 Mapper<Latest> latestMapper = mappingManager.mapper(Latest.class);
-                dataMapper.save(new StringData(host, metric, timeSlice, primaryTime, boxedSecondaryTime, value), timestamp(primaryTime * 1000), saveNullFields(false));
+                dataMapper.save(new StringData(host, metric, timeSlice, primaryTime, boxedSecondaryTime, value), saveNullFields(false));
                 latestMapper.save(new Latest(host, metric, timeSlice), saveNullFields(false));
             }
         } catch (NoHostAvailableException e) {
@@ -340,6 +493,17 @@ public class SagittariusWriter implements Writer {
             throw new TimeoutException(e.getMessage(), e.getCause());
         } catch (QueryExecutionException e) {
             throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+        }
+    }
+
+    @Override
+    public void insert(String host, String metric, long primaryTime, long secondaryTime, String value) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, UnregisteredHostMetricException {
+        HostMetric hostMetric = getHostMetric(host, metric);
+        if(hostMetric != null){
+            insert(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+        }
+        else {
+            throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
         }
     }
 
@@ -353,7 +517,7 @@ public class SagittariusWriter implements Writer {
                 Long boxedSecondaryTime = secondaryTime == -1 ? null : secondaryTime;
                 Mapper<GeoData> dataMapper = mappingManager.mapper(GeoData.class);
                 Mapper<Latest> latestMapper = mappingManager.mapper(Latest.class);
-                dataMapper.save(new GeoData(host, metric, timeSlice, primaryTime, boxedSecondaryTime, latitude, longitude), timestamp(primaryTime * 1000), saveNullFields(false));
+                dataMapper.save(new GeoData(host, metric, timeSlice, primaryTime, boxedSecondaryTime, latitude, longitude), saveNullFields(false));
                 latestMapper.save(new Latest(host, metric, timeSlice), saveNullFields(false));
             }
         } catch (NoHostAvailableException e) {
@@ -366,10 +530,21 @@ public class SagittariusWriter implements Writer {
     }
 
     @Override
+    public void insert(String host, String metric, long primaryTime, long secondaryTime, float latitude, float longitude) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, UnregisteredHostMetricException {
+        HostMetric hostMetric = getHostMetric(host, metric);
+        if(hostMetric != null){
+            insert(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), latitude, longitude);
+        }
+        else {
+            throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
+        }
+    }
+
+    @Override
     public void insert(String host, String metric, long timeSlice, double maxValue, double minValue, double countValue, double sumValue) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         try {
             Mapper<AggregationData> dataMapper = mappingManager.mapper(AggregationData.class);
-            dataMapper.save(new AggregationData(host, metric, timeSlice, maxValue, minValue, countValue, sumValue), timestamp(System.currentTimeMillis()), saveNullFields(false));
+            dataMapper.save(new AggregationData(host, metric, timeSlice, maxValue, minValue, countValue, sumValue), saveNullFields(false));
         }catch (NoHostAvailableException e) {
             throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
         } catch (OperationTimedOutException | WriteTimeoutException e) {
@@ -432,15 +607,59 @@ public class SagittariusWriter implements Writer {
         return sb.toString();
     }
 
-    private List<HostMetric> getHostMetrics(List<String> hosts, List<String> metrics) {
+    public HostMetric getHostMetric(String host, String metric) {
         List<HostMetric> result = new ArrayList<>();
         List<String> queryHosts = new ArrayList<>(), queryMetrics = new ArrayList<>();
+        //first visit cache, if do not exist in cache, then query cassandra
+        TypePartitionPair typePartition = cache.get(new HostMetricPair(host, metric));
+        if (typePartition != null) {
+            return (new HostMetric(host, metric, typePartition.getTimePartition(), typePartition.getValueType(), null));
+        } else {
+            queryHosts.add(host);
+            queryMetrics.add(metric);
+        }
         //query cassandra
         Mapper<HostMetric> mapper = mappingManager.mapper(HostMetric.class);
         Statement statement = new SimpleStatement(String.format(QueryStatement.HOST_METRICS_QUERY_STATEMENT, generateInStatement(queryHosts), generateInStatement(queryMetrics)));
         ResultSet rs = session.execute(statement);
         List<HostMetric> hostMetrics = mapper.map(rs).all();
         result.addAll(hostMetrics);
+        //update cache
+        for (HostMetric hostMetric : hostMetrics) {
+            cache.put(new HostMetricPair(hostMetric.getHost(), hostMetric.getMetric()), new TypePartitionPair(hostMetric.getTimePartition(), hostMetric.getValueType()));
+        }
+
+        return result.size() > 0 ? result.get(0) : null;
+    }
+
+    public List<HostMetric> getHostMetrics(List<String> hosts, List<String> metrics) {
+        List<HostMetric> result = new ArrayList<>();
+        List<String> queryHosts = new ArrayList<>(), queryMetrics = new ArrayList<>();
+        //first visit cache, if do not exist in cache, then query cassandra
+        for (String host : hosts) {
+            for (String metric : metrics) {
+                TypePartitionPair typePartition = cache.get(new HostMetricPair(host, metric));
+                if (typePartition != null) {
+                    result.add(new HostMetric(host, metric, typePartition.getTimePartition(), typePartition.getValueType(), null));
+                } else {
+                    queryHosts.add(host);
+                    queryMetrics.add(metric);
+                }
+            }
+        }
+        if(queryHosts.isEmpty() || queryMetrics.isEmpty()){
+            return result;
+        }
+        //query cassandra
+        Mapper<HostMetric> mapper = mappingManager.mapper(HostMetric.class);
+        Statement statement = new SimpleStatement(String.format(QueryStatement.HOST_METRICS_QUERY_STATEMENT, generateInStatement(queryHosts), generateInStatement(queryMetrics)));
+        ResultSet rs = session.execute(statement);
+        List<HostMetric> hostMetrics = mapper.map(rs).all();
+        result.addAll(hostMetrics);
+        //update cache
+        for (HostMetric hostMetric : hostMetrics) {
+            cache.put(new HostMetricPair(hostMetric.getHost(), hostMetric.getMetric()), new TypePartitionPair(hostMetric.getTimePartition(), hostMetric.getValueType()));
+        }
 
         return result;
     }
@@ -457,7 +676,6 @@ public class SagittariusWriter implements Writer {
                     timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * 1000, TimePartition.DAY));
                     start = start.plusDays(1);
                 }
-                timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * 1000, TimePartition.DAY));
                 break;
             }
             case WEEK:{
@@ -465,7 +683,6 @@ public class SagittariusWriter implements Writer {
                     timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * 1000, TimePartition.WEEK));
                     start = start.plusWeeks(1);
                 }
-                timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * 1000, TimePartition.WEEK));
                 break;
             }
             case MONTH:{
@@ -473,7 +690,6 @@ public class SagittariusWriter implements Writer {
                     timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * 1000, TimePartition.MONTH));
                     start= start.plusMonths(1);
                 }
-                timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * 1000, TimePartition.MONTH));
                 break;
             }
             case YEAR:{
@@ -481,7 +697,6 @@ public class SagittariusWriter implements Writer {
                     timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * 1000, TimePartition.YEAR));
                     start = start.plusYears(1);
                 }
-                timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * 1000, TimePartition.YEAR));
                 break;
             }
         }

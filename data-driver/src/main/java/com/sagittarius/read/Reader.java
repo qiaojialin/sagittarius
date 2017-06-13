@@ -5,11 +5,13 @@ import com.sagittarius.bean.common.ValueType;
 import com.sagittarius.bean.query.*;
 import com.sagittarius.bean.result.*;
 import com.sagittarius.bean.table.GeoData;
+import com.sagittarius.bean.table.HostMetric;
 import com.sagittarius.exceptions.NoHostAvailableException;
 import com.sagittarius.exceptions.QueryExecutionException;
 import com.sagittarius.exceptions.SparkException;
 import com.sagittarius.exceptions.TimeoutException;
 import com.sagittarius.write.SagittariusWriter;
+import com.sagittarius.write.Writer;
 
 import java.io.IOException;
 import java.util.List;
@@ -399,10 +401,9 @@ public interface Reader {
 
     void exportGeoCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, NoHostAvailableException, TimeoutException, QueryExecutionException, SparkException;
 
-    void preAggregateFunction(List<String> hosts, List<String> metrics, long startTime, long endTime, SagittariusWriter writer) throws com.sagittarius.exceptions.NoHostAvailableException, com.sagittarius.exceptions.QueryExecutionException, TimeoutException;
+    void preAggregateFunction(List<String> hosts, List<String> metrics, long startTime, long endTime, Writer writer) throws com.sagittarius.exceptions.NoHostAvailableException, com.sagittarius.exceptions.QueryExecutionException, TimeoutException;
 
-    Map<String, Map<String, Long>> getAggregatedTimeSlice(List<String> hosts, List<String> metrics) throws com.sagittarius.exceptions.NoHostAvailableException, com.sagittarius.exceptions.QueryExecutionException, TimeoutException;
+    Map<String, Map<String, Double>> getAggregationRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws NoHostAvailableException, QueryExecutionException, TimeoutException;
 
-    Map<String, Map<String, Double>> getAggregationRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType, ValueType valueType);
-
+    List<HostMetric> getHostMetrics(List<String> hosts, List<String> metrics);
     }

@@ -53,8 +53,9 @@ public class BatchWriteBigDataTask extends Thread {
             for(String host : hosts){
                 String newHost = host + (1000+50*order+i);
                 //50 * 20
+                ArrayList<Tuple22<FloatPoint,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,String,Float,Float,Float,Float>> data = map.get(host);
+
                 for (int team = 100; team < 200; team++){
-                    ArrayList<Tuple22<FloatPoint,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,String,Float,Float,Float,Float>> data = map.get(host);
                     //for every line data
                     for(Tuple22<FloatPoint,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,String,Float,Float,Float,Float> d : data){
                         long primaryTime = d._1().getPrimaryTime();

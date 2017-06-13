@@ -24,29 +24,48 @@ import com.sagittarius.exceptions.TimeoutException;
 import com.sagittarius.read.internals.QueryStatement;
 import com.sagittarius.util.TimeUtil;
 import com.sagittarius.write.SagittariusWriter;
+import com.sagittarius.write.Writer;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import scala.Tuple2;
 
+import java.awt.*;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.*;
+import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.datastax.spark.connector.japi.CassandraJavaUtil.javaFunctions;
+import static java.time.temporal.ChronoField.ALIGNED_WEEK_OF_YEAR;
 
 public class SagittariusReader implements Reader {
     private Session session;
     private MappingManager mappingManager;
     private JavaSparkContext sparkContext;
     private Cache<HostMetricPair, TypePartitionPair> cache;
+//    private PreparedStatement aggIntStatement;
+//    private PreparedStatement aggLongStatement;
+//    private PreparedStatement aggFloatStatement;
+//    private PreparedStatement aggDoubleStatement;
+//    private PreparedStatement aggStringStatement;
+//    private PreparedStatement aggBooleanStatement;
+//    private PreparedStatement aggGeoStatement;
 
     public SagittariusReader(Session session, MappingManager mappingManager, JavaSparkContext sparkContext, Cache<HostMetricPair, TypePartitionPair> cache) {
         this.session = session;
         this.mappingManager = mappingManager;
         this.sparkContext = sparkContext;
         this.cache = cache;
+//        aggIntStatement = session.prepare("select count(*), max(*), min(*), sum(*) from data_int where host = :h and metric = :m and time_slice = :t");
+//        aggLongStatement = session.prepare("select count(*), max(*), min(*), sum(*) from data_long where host = :h and metric = :m and time_slice = :t");
+//        aggFloatStatement = session.prepare("select count(*), max(*), min(*), sum(*) from data_float where host = :h and metric = :m and time_slice = :t");
+//        aggDoubleStatement = session.prepare("select count(*), max(*), min(*), sum(*) from data_double where host = :h and metric = :m and time_slice = :t");
+//        aggBooleanStatement = session.prepare("select count(*) from data_boolean where host = :h and metric = :m and time_slice = :t");
+//        aggStringStatement = session.prepare("select count(*) from data_text where host = :h and metric = :m and time_slice = :t");
+//        aggGeoStatement = session.prepare("select count(*) from data_geo where host = :h and metric = :m and time_slice = :t");
     }
 
     private Map<String, Map<String, Set<String>>> getTimeSlicePartedHostMetrics(List<HostMetric> hostMetrics, long time) {
@@ -73,7 +92,7 @@ public class SagittariusReader implements Reader {
         return timeSliceHostMetric;
     }
 
-    private List<HostMetric> getHostMetrics(List<String> hosts, List<String> metrics) {
+    public List<HostMetric> getHostMetrics(List<String> hosts, List<String> metrics) {
         List<HostMetric> result = new ArrayList<>();
         List<String> queryHosts = new ArrayList<>(), queryMetrics = new ArrayList<>();
         //first visit cache, if do not exist in cache, then query cassandra
@@ -1430,7 +1449,6 @@ public class SagittariusReader implements Reader {
                         break;
                 }
             }
-
             if(desc){
                 String startPredicate = String.format(QueryStatement.PARTIAL_PARTITION_WHERE_STATEMENT_DESC, hostsString, metricsString, startTimeSlice, ">=", startTime, filter);
                 predicates.add(startPredicate);
@@ -1860,7 +1878,6 @@ public class SagittariusReader implements Reader {
         LocalDateTime end = LocalDateTime.ofEpochSecond(endTime/1000, 0, TimeUtil.zoneOffset);
         switch (timePartition){
             case DAY:{
-
                 while (start.isBefore(end)){
                     timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * 1000, TimePartition.DAY));
                     start = start.plusDays(1);
@@ -2145,7 +2162,6 @@ public class SagittariusReader implements Reader {
         Map<HostMetric, Double> datas = new HashMap<>();
 
         String queryFilter = filter == null ? "" : " and " + filter + " allow filtering";
-
         List<HostMetric> hostMetrics = getHostMetrics(hosts, metrics);
 
         try {
@@ -3169,22 +3185,22 @@ public class SagittariusReader implements Reader {
         switch (aggregationType) {
             case MAX: {
                 String queryFilter = filter == null ? "" : " and " + filter.replaceAll("value", "max_value");
-                predicate = ("host = \'" + host + "\' and metric = \'" + metric + "\' and time_slice >= " + startHour + " and time_slice <= " + endHour + queryFilter);
+                predicate = ("host = \'" + host + "\' and metric = \'" + metric + "\' and time_slice >= " + startHour + " and time_slice < " + endHour + queryFilter);
                 break;
             }
             case MIN: {
                 String queryFilter = filter == null ? "" : " and " + filter.replaceAll("value", "min_value");
-                predicate = ("host = \'" + host + "\' and metric = \'" + metric + "\' and time_slice >= " + startHour + " and time_slice <= " + endHour + queryFilter);
+                predicate = ("host = \'" + host + "\' and metric = \'" + metric + "\' and time_slice >= " + startHour + " and time_slice < " + endHour + queryFilter);
                 break;
             }
             case COUNT: {
                 String queryFilter = filter == null ? "" : " and " + filter.replaceAll("value", "max_value") + " and " + filter.replaceAll("value", "min_value");
-                predicate = ("host = \'" + host + "\' and metric = \'" + metric + "\' and time_slice >= " + startHour + " and time_slice <= " + endHour + queryFilter);
+                predicate = ("host = \'" + host + "\' and metric = \'" + metric + "\' and time_slice >= " + startHour + " and time_slice < " + endHour + queryFilter);
                 break;
             }
             case SUM: {
                 String queryFilter = filter == null ? "" : " and " + filter.replaceAll("value", "max_value") + " and " + filter.replaceAll("value", "min_value");
-                predicate = ("host = \'" + host + "\' and metric = \'" + metric + "\' and time_slice >= " + startHour + " and time_slice <= " + endHour + queryFilter);
+                predicate = ("host = \'" + host + "\' and metric = \'" + metric + "\' and time_slice >= " + startHour + " and time_slice < " + endHour + queryFilter);
             }
         }
         return predicate;
@@ -3237,14 +3253,20 @@ public class SagittariusReader implements Reader {
         ArrayList<String> metrics = new ArrayList<>();
         metrics.add(metric);
 
-        long startHour = (startTime % 3600000 == 0) ? (startTime / 3600000) : (startTime / 3600000 + 1);
-        long endHour = endTime / 3600000;
+        long m_startTime = startTime + 28800000;
+        long m_endTime = endTime + 28800000;
+
+        long startHour = (m_startTime % 86400000 == 0) ? (m_startTime / 86400000) : (m_startTime / 86400000 + 1);
+        long endHour = m_endTime / 86400000;
+
+        long queryStartTime = startHour * 86400000 - 28800000;
+        long queryEndTime = endHour * 86400000 - 28800000;
         switch (aggregationType) {
             case MAX: {
                 //suggestion : query time fits whole hour so there's no need to computer first and last interval
                 double firstIntervalResult;
-                if (startHour * 3600000 > startTime) {
-                    Map<String, Map<String, Double>> firstIntervalMap = getNumericRange(hosts, metrics, startTime, startHour * 3600000, filter, aggregationType, valueType);
+                if (queryStartTime > startTime) {
+                    Map<String, Map<String, Double>> firstIntervalMap = getNumericRange(hosts, metrics, startTime, queryStartTime, filter, aggregationType, valueType);
                     firstIntervalResult = firstIntervalMap.isEmpty() ? 0d : firstIntervalMap.get(host).get(metric);
                 } else {
                     // TODO: 17-4-5 a proper initial value
@@ -3252,8 +3274,8 @@ public class SagittariusReader implements Reader {
                 }
 
                 double lastIntervalResult;
-                if (endTime > endHour * 3600000) {
-                    Map<String, Map<String, Double>> lastIntervalMap = getNumericRange(hosts, metrics, endHour * 3600000, endTime, filter, aggregationType, valueType);
+                if (endTime > queryEndTime) {
+                    Map<String, Map<String, Double>> lastIntervalMap = getNumericRange(hosts, metrics, queryEndTime, endTime, filter, aggregationType, valueType);
                     lastIntervalResult = lastIntervalMap.isEmpty() ? 0d : lastIntervalMap.get(host).get(metric);
                 } else {
                     // TODO: 17-4-5 a proper initial value
@@ -3273,7 +3295,7 @@ public class SagittariusReader implements Reader {
                 }
                 totalTimeSlices.removeAll(usedTimeSlices);
                 for (long time : totalTimeSlices) {
-                    Map<String, Map<String, Double>> intervalMap = getNumericRange(hosts, metrics, time * 3600000, time * 3600000 + 3600000, filter, aggregationType, valueType);
+                    Map<String, Map<String, Double>> intervalMap = getNumericRange(hosts, metrics, time * 86400000 - 28800000, time * 86400000 + 86400000 - 28800000, filter, aggregationType, valueType);
                     double intervalResult = intervalMap.isEmpty() ? 0d : intervalMap.get(host).get(metric);
                     result = Math.max(result, intervalResult);
                 }
@@ -3282,8 +3304,8 @@ public class SagittariusReader implements Reader {
             case MIN: {
                 //suggestion : query time fits whole hour so there's no need to computer first and last interval
                 double firstIntervalResult;
-                if (startHour * 3600000 > startTime) {
-                    Map<String, Map<String, Double>> firstIntervalMap = getNumericRange(hosts, metrics, startTime, startHour * 3600000, filter, aggregationType, valueType);
+                if (queryStartTime > startTime) {
+                    Map<String, Map<String, Double>> firstIntervalMap = getNumericRange(hosts, metrics, startTime, queryStartTime, filter, aggregationType, valueType);
                     firstIntervalResult = firstIntervalMap.isEmpty() ? Long.MAX_VALUE : firstIntervalMap.get(host).get(metric);
                 } else {
                     // TODO: 17-4-5 a proper initial value
@@ -3291,8 +3313,8 @@ public class SagittariusReader implements Reader {
                 }
 
                 double lastIntervalResult;
-                if (endTime > endHour * 3600000) {
-                    Map<String, Map<String, Double>> lastIntervalMap = getNumericRange(hosts, metrics, endHour * 3600000, endTime, filter, aggregationType, valueType);
+                if (endTime > queryEndTime) {
+                    Map<String, Map<String, Double>> lastIntervalMap = getNumericRange(hosts, metrics, queryEndTime, endTime, filter, aggregationType, valueType);
                     lastIntervalResult = lastIntervalMap.isEmpty() ? Long.MAX_VALUE : lastIntervalMap.get(host).get(metric);
                 } else {
                     // TODO: 17-4-5 a proper initial value
@@ -3312,7 +3334,7 @@ public class SagittariusReader implements Reader {
                 }
                 totalTimeSlices.removeAll(usedTimeSlices);
                 for (long time : totalTimeSlices) {
-                    Map<String, Map<String, Double>> intervalMap = getNumericRange(hosts, metrics, time * 3600000, time * 3600000 + 3600000, filter, aggregationType, valueType);
+                    Map<String, Map<String, Double>> intervalMap = getNumericRange(hosts, metrics, time * 86400000 - 28800000, time * 86400000 + 86400000 - 28800000, filter, aggregationType, valueType);
                     double intervalResult = intervalMap.isEmpty() ? Long.MAX_VALUE : intervalMap.get(host).get(metric);
                     result = Math.min(result, intervalResult);
                 }
@@ -3321,8 +3343,8 @@ public class SagittariusReader implements Reader {
             case COUNT: {
                 //suggestion : query time fits whole hour so there's no need to computer first and last interval
                 double firstIntervalResult;
-                if (startHour * 3600000 > startTime) {
-                    Map<String, Map<String, Double>> firstIntervalMap = getNumericRange(hosts, metrics, startTime, startHour * 3600000, filter, aggregationType, valueType);
+                if (queryStartTime > startTime) {
+                    Map<String, Map<String, Double>> firstIntervalMap = getNumericRange(hosts, metrics, startTime, queryStartTime, filter, aggregationType, valueType);
                     firstIntervalResult = firstIntervalMap.isEmpty() ? 0d : firstIntervalMap.get(host).get(metric);
                 } else {
                     // TODO: 17-4-5 a proper initial value
@@ -3330,8 +3352,8 @@ public class SagittariusReader implements Reader {
                 }
 
                 double lastIntervalResult;
-                if (endTime > endHour * 3600000) {
-                    Map<String, Map<String, Double>> lastIntervalMap = getNumericRange(hosts, metrics, endHour * 3600000, endTime, filter, aggregationType, valueType);
+                if (endTime > queryEndTime) {
+                    Map<String, Map<String, Double>> lastIntervalMap = getNumericRange(hosts, metrics, queryEndTime, endTime, filter, aggregationType, valueType);
                     lastIntervalResult = lastIntervalMap.isEmpty() ? 0d : lastIntervalMap.get(host).get(metric);
                 } else {
                     // TODO: 17-4-5 a proper initial value
@@ -3351,7 +3373,7 @@ public class SagittariusReader implements Reader {
                 }
                 totalTimeSlices.removeAll(usedTimeSlices);
                 for (long time : totalTimeSlices) {
-                    Map<String, Map<String, Double>> intervalMap = getNumericRange(hosts, metrics, time * 3600000, time * 3600000 + 3600000, filter, aggregationType, valueType);
+                    Map<String, Map<String, Double>> intervalMap = getNumericRange(hosts, metrics, time * 86400000 - 28800000, time * 86400000 + 86400000 - 28800000, filter, aggregationType, valueType);
                     double intervalResult = intervalMap.isEmpty() ? 0d : intervalMap.get(host).get(metric);
                     result += intervalResult;
                 }
@@ -3360,8 +3382,8 @@ public class SagittariusReader implements Reader {
             case SUM: {
                 //suggestion : query time fits whole hour so there's no need to computer first and last interval
                 double firstIntervalResult;
-                if (startHour * 3600000 > startTime) {
-                    Map<String, Map<String, Double>> firstIntervalMap = getNumericRange(hosts, metrics, startTime, startHour * 3600000, filter, aggregationType, valueType);
+                if (queryStartTime > startTime) {
+                    Map<String, Map<String, Double>> firstIntervalMap = getNumericRange(hosts, metrics, startTime, queryStartTime, filter, aggregationType, valueType);
                     firstIntervalResult = firstIntervalMap.isEmpty() ? 0d : firstIntervalMap.get(host).get(metric);
                 } else {
                     // TODO: 17-4-5 a proper initial value
@@ -3369,8 +3391,8 @@ public class SagittariusReader implements Reader {
                 }
 
                 double lastIntervalResult;
-                if (endTime > endHour * 3600000) {
-                    Map<String, Map<String, Double>> lastIntervalMap = getNumericRange(hosts, metrics, endHour * 3600000, endTime, filter, aggregationType, valueType);
+                if (endTime > queryEndTime) {
+                    Map<String, Map<String, Double>> lastIntervalMap = getNumericRange(hosts, metrics, queryEndTime, endTime, filter, aggregationType, valueType);
                     lastIntervalResult = lastIntervalMap.isEmpty() ? 0d : lastIntervalMap.get(host).get(metric);
                 } else {
                     // TODO: 17-4-5 a proper initial value
@@ -3390,7 +3412,7 @@ public class SagittariusReader implements Reader {
                 }
                 totalTimeSlices.removeAll(usedTimeSlices);
                 for (long time : totalTimeSlices) {
-                    Map<String, Map<String, Double>> intervalMap = getNumericRange(hosts, metrics, time * 3600000, time * 3600000 + 3600000, filter, aggregationType, valueType);
+                    Map<String, Map<String, Double>> intervalMap = getNumericRange(hosts, metrics, time * 86400000 - 28800000, time * 86400000 + 86400000 - 28800000, filter, aggregationType, valueType);
                     double intervalResult = intervalMap.isEmpty() ? 0d : intervalMap.get(host).get(metric);
                     result += intervalResult;
                 }
@@ -3406,66 +3428,162 @@ public class SagittariusReader implements Reader {
         return result;
     }
 
-    public Map<String, Map<String, Double>> getAggregationRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType, ValueType valueType) {
+    public Map<String, Map<String, Double>> getAggregationRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws com.sagittarius.exceptions.NoHostAvailableException, com.sagittarius.exceptions.QueryExecutionException, TimeoutException {
         //make sure that data has been pre-aggregated
         Map<String, Map<String, Double>> result = new HashMap<>();
         for (String host : hosts) {
             Map<String, Double> hostResult = new HashMap<>();
             for (String metric : metrics) {
-                hostResult.put(metric, getSingleAggregationResult2(host, metric, startTime, endTime, filter, aggregationType, valueType));
+                hostResult.put(metric, getSingleAggregationResult2(host, metric, startTime, endTime, filter, aggregationType, getValueType(host,metric)));
             }
             result.put(host, hostResult);
         }
         return result;
     }
 
-    @Override
-    public Map<String, Map<String, Long>> getAggregatedTimeSlice(List<String> hosts, List<String> metrics) throws com.sagittarius.exceptions.NoHostAvailableException, com.sagittarius.exceptions.QueryExecutionException, TimeoutException {
-//        SimpleStatement statement = new SimpleStatement("select host, metric, time_slice from data_aggregation where host in (" + generateInStatement(hosts) + ") and metric in (" + generateInStatement(metrics) + ")" );
-//        ResultSet resultSet = session.execute(statement);
-//        List<Row> resultList = resultSet.all();
-//        Map<String, Map<String, Long>> result = new HashMap<>();
-//        for(Row row : resultList){
-//            String host = row.getString(0);
-//            String metric = row.getString(1);
-//            long timeSlice = row.getLong(2);
-//        }
-        return null;
-    }
-
-    public void preAggregateFunction(List<String> hosts, List<String> metrics, long startTime, long endTime, SagittariusWriter writer) throws com.sagittarius.exceptions.NoHostAvailableException, com.sagittarius.exceptions.QueryExecutionException, TimeoutException {
+    public void preAggregateFunction(List<String> hosts, List<String> metrics, long startTime, long endTime, Writer writer) throws com.sagittarius.exceptions.NoHostAvailableException, com.sagittarius.exceptions.QueryExecutionException, TimeoutException {
 
         // TODO: 17-3-28 if hosts == null then hosts = all hosts, so does metrics
-        long startTimeHour = startTime / 3600000;
-        long endTimeHour = endTime / 3600000;
+        long startTimeHour = (startTime+28800000) / 86400000;
+        long endTimeHour = (endTime+28800000) / 86400000;
         while (startTimeHour < endTimeHour) {
-            long queryStartTime = startTimeHour * 3600000;
-            long queryEndTime = queryStartTime + 3600000;
+            long queryStartTime = startTimeHour * 86400000 - 28800000;
+            long queryEndTime = queryStartTime + 86400000;
             for (String host : hosts) {
                 for (String metric : metrics) {
+                    ValueType valueType = getValueType(host, metric);
+                    String tablename = getTableByType(valueType);
                     ArrayList<String> queryHost = new ArrayList<>();
                     queryHost.add(host);
                     ArrayList<String> queryMetric = new ArrayList<>();
                     queryMetric.add(metric);
                     String filter = getRangeQueryPredicates(queryHost, queryMetric, queryStartTime, queryEndTime, "", false).get(0);
-                    SimpleStatement statement = new SimpleStatement("select max(value) from data_float where " + filter);
-                    ResultSet resultSet = session.execute(statement);
-                    double maxResult = (double) (resultSet.all().get(0).getFloat(0));
-                    statement = new SimpleStatement("select min(value) from data_float where " + filter);
-                    resultSet = session.execute(statement);
-                    double minResult = (double) (resultSet.all().get(0).getFloat(0));
-                    statement = new SimpleStatement("select count(value) from data_float where " + filter);
-                    resultSet = session.execute(statement);
-                    double countResult = (double) (resultSet.all().get(0).getLong(0));
-                    statement = new SimpleStatement("select sum(value) from data_float where " + filter);
-                    resultSet = session.execute(statement);
-                    double sumResult = (double) (resultSet.all().get(0).getFloat(0));
-                    if (countResult > 0) {
-                        writer.insert(host, metric, startTimeHour, maxResult, minResult, countResult, sumResult);
+                    if(valueType == ValueType.STRING || valueType == ValueType.BOOLEAN || valueType == ValueType.GEO){
+                        SimpleStatement statement = new SimpleStatement("select count(value) from " + tablename + " where " + filter);
+                        ResultSet resultSet = session.execute(statement);
+                        double countResult = (double) (resultSet.all().get(0).getLong(0));
+                        if (countResult > 0) {
+                            writer.insert(host, metric, startTimeHour, 0, 0, countResult, 0);
+                        }
+                    }
+                    else {
+                        SimpleStatement statement = new SimpleStatement("select max(value) from " + tablename + " where " + filter);
+                        ResultSet resultSet = session.execute(statement);
+                        double maxResult = (double) (resultSet.all().get(0).getFloat(0));
+                        statement = new SimpleStatement("select min(value) from " + tablename + " where " + filter);
+                        resultSet = session.execute(statement);
+                        double minResult = (double) (resultSet.all().get(0).getFloat(0));
+                        statement = new SimpleStatement("select count(value) from " + tablename + " where " + filter);
+                        resultSet = session.execute(statement);
+                        double countResult = (double) (resultSet.all().get(0).getLong(0));
+                        statement = new SimpleStatement("select sum(value) from " + tablename + " where " + filter);
+                        resultSet = session.execute(statement);
+                        double sumResult = (double) (resultSet.all().get(0).getFloat(0));
+                        if (countResult > 0) {
+                            writer.insert(host, metric, startTimeHour, maxResult, minResult, countResult, sumResult);
+                        }
+
                     }
                 }
             }
             startTimeHour += 1;
         }
     }
+
+//    public void preAggregateFunction2(List<String> hosts, List<String> metrics, long startTime, long endTime, SagittariusWriter writer) throws com.sagittarius.exceptions.NoHostAvailableException, com.sagittarius.exceptions.QueryExecutionException, TimeoutException {
+//
+//        List<HostMetric> hostMetrics = getHostMetrics(hosts, metrics);
+//        for(HostMetric hostMetric : hostMetrics){
+//            String host = hostMetric.getHost();
+//            String metric = hostMetric.getMetric();
+//            TimePartition timePartition = hostMetric.getTimePartition();
+//            long time_slice = -1;
+//            switch (timePartition){
+//                case DAY:{
+//                    time_slice = startTime / 86400000L;
+//                    break;
+//                }
+//                case WEEK:{
+//                    LocalDateTime time = LocalDateTime.ofEpochSecond(startTime/1000, 0, ZoneOffset.ofHours(8));
+//                    int year = time.getYear();
+//                    int week = time.get(ALIGNED_WEEK_OF_YEAR) - 1;
+//                    time_slice = year * 53 + week;
+//                    break;
+//                }
+//                case MONTH:{
+//                    LocalDateTime time = LocalDateTime.ofEpochSecond(startTime/1000, 0, ZoneOffset.ofHours(8));
+//                    int year = time.getYear();
+//                    int month = time.getMonthValue() - 1;
+//                    time_slice = year * 12 + month;
+//                    break;
+//                }
+//                case YEAR:{
+//                    LocalDateTime time = LocalDateTime.ofEpochSecond(startTime/1000, 0, ZoneOffset.ofHours(8));
+//                    time_slice = time.getYear();
+//                    break;
+//                }
+//            }
+//            if(time_slice < 0){
+//                continue;
+//            }
+//            List<String> timeSlices = getTimeSlices(startTime, endTime, timePartition);
+//            ValueType valueType = hostMetric.getValueType();
+//            PreparedStatement aggStatement = null;
+//            switch (valueType){
+//                case INT:
+//                    aggStatement = aggIntStatement;
+//                    for (String timeSlice : timeSlices){
+//                        BoundStatement statement = aggStatement.bind(host, metric, timeSlice);
+//                        ResultSet resultSet = session.execute(statement);
+//                        double countResult = (double) (resultSet.all().get(0).getLong(0));
+//                        if(countResult == 0){
+//                            time_slice += 1;
+//                            continue;
+//                        }
+//                        double maxResult = (double) (resultSet.all().get(0).getInt(1));
+//                        double minResult = (double) (resultSet.all().get(0).getInt(2));
+//                        double sumResult = (double) (resultSet.all().get(0).getInt(3));
+//                        writer.insert(host, metric, time_slice, maxResult, minResult, countResult, sumResult);
+//                        time_slice += 1;
+//                    }
+//                    break;
+//                case LONG:
+//                    aggStatement = aggLongStatement;
+//                    break;
+//                case FLOAT:
+//                    aggStatement = aggFloatStatement;
+//                    for (String timeSlice : timeSlices){
+//                        BoundStatement statement = aggStatement.bind(host, metric, timeSlice);
+//                        ResultSet resultSet = session.execute(statement);
+//                        double countResult = (double) (resultSet.all().get(0).getLong(0));
+//                        if(countResult == 0){
+//                            time_slice += 1;
+//                            continue;
+//                        }
+//                        double maxResult = (double) (resultSet.all().get(0).getFloat(1));
+//                        double minResult = (double) (resultSet.all().get(0).getFloat(2));
+//                        double sumResult = (double) (resultSet.all().get(0).getFloat(3));
+//                        writer.insert(host, metric, time_slice, maxResult, minResult, countResult, sumResult);
+//                        time_slice += 1;
+//                    }
+//                    break;
+//                case DOUBLE:
+//                    aggStatement = aggDoubleStatement;
+//                    break;
+//                case STRING:
+//                    aggStatement = aggStringStatement;
+//                    break;
+//                case BOOLEAN:
+//                    aggStatement = aggBooleanStatement;
+//                    break;
+//                case GEO:
+//                    aggStatement = aggGeoStatement;
+//                    break;
+//            }
+//            if(aggStatement == null){
+//                continue;
+//            }
+//
+//        }
+//    }
 }

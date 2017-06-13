@@ -3,6 +3,7 @@ package com.sagittarius.example;
 import com.datastax.driver.core.Cluster;
 import com.datastax.spark.connector.japi.CassandraRow;
 import com.datastax.spark.connector.japi.rdd.CassandraTableScanJavaRDD;
+import com.datastax.spark.connector.util.Symbols;
 import com.sagittarius.bean.common.MetricMetadata;
 import com.sagittarius.bean.common.TimePartition;
 import com.sagittarius.bean.common.ValueType;
@@ -22,11 +23,13 @@ import com.sagittarius.read.SagittariusReader;
 import com.sagittarius.util.TimeUtil;
 import com.sagittarius.write.SagittariusWriter;
 import com.sagittarius.write.Writer;
+import org.apache.hadoop.yarn.webapp.hamlet.HamletSpec;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Tuple22;
+import scala.tools.cmd.gen.AnyVals;
 
 import java.io.*;
 import java.text.ParseException;
@@ -41,27 +44,27 @@ import static java.lang.System.setOut;
 public class Example {
     private static final Logger logger = LoggerFactory.getLogger(Example.class);
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, QueryExecutionException, TimeoutException, NoHostAvailableException, ParseException, SparkException {
         CassandraConnection connection = CassandraConnection.getInstance();
         Cluster cluster = connection.getCluster();
 
         SparkConf sparkConf = new SparkConf();
 //        sparkConf.setMaster("spark://192.168.3.17:7077").setAppName("test");
-        sparkConf.setMaster("spark://192.168.15.116:7077").setAppName("kmxtest");
+        sparkConf.setMaster("spark://192.168.15.114:7077").setAppName("kmxtest");
         //to fix the can't assign from .. to .. Error
         String[] jars = {"examples-1.0-SNAPSHOT-jar-with-dependencies.jar"};
         sparkConf.setJars(jars);
-        sparkConf.set("spark.cassandra.connection.host", "192.168.15.114");
+        sparkConf.set("spark.cassandra.connection.host", "192.168.15.120");
         sparkConf.set("spark.cassandra.connection.port", "9042");
         sparkConf.set("spark.cassandra.connection.keep_alive_ms", "600000");
-        sparkConf.set("spark.driver.host","192.168.15.123");
+//        sparkConf.set("spark.driver.host","192.168.15.123");
 
         //sparkConf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
         //sparkConf.set("spark.kryoserializer.buffer.max", "512m");
         //sparkConf.set("spark.executor.extraJavaOptions", "-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/home/agittarius/");
         //sparkConf.set("spark.scheduler.mode", "FAIR");
         //sparkConf.set("spark.executor.cores", "4");
-//        sparkConf.set("spark.cores.max", "20");
+        sparkConf.set("spark.cores.max", "20");
         //sparkConf.set("spark.driver.maxResultSize", "20g");
         //sparkConf.set("spark.driver.memory", "20g");
 //        sparkConf.set("spark.executor.memory", "2g");
@@ -79,7 +82,7 @@ public class Example {
         //task3.start();
         //test(client.getSparkContext());
         //floatRead(reader);
-        //insert(writer);
+        insert(writer);
 //        TestTask testTask = new TestTask(reader);
 //        testTask.start();
         //floatRead(reader);
@@ -96,25 +99,155 @@ public class Example {
         //read(reader);
         //readbyRange(reader);
         //readFuzzy(reader);
-        //floatRead(reader);
+//        long st = System.currentTimeMillis();
+//        floatRead(reader);
+//        System.out.println(System.currentTimeMillis() - st);
 //        test(reader);
 //        int threads = Integer.valueOf(args[0]);
 //        int batchSize = Integer.valueOf(args[1]);
 //        String directory = args[2];
-//        batchWriteBigData3(writer, threads, batchSize, directory);
+//        batchWriteBigData2(writer, threads, batchSize, directory);
 
-        floatRead(reader);
-
+//        deleteTest(reader, writer);
         exit(0);
 
     }
 
+    private static void deleteTest(SagittariusReader reader, SagittariusWriter writer) throws ParseException, NoHostAvailableException, QueryExecutionException, TimeoutException, SparkException {
+        ArrayList<String> hosts = new ArrayList<>();
+        hosts.add("128934");
+//        hosts.add("128579");
+//        hosts.add("130889");
+//        hosts.add("131979");
+//        hosts.add("135931");
+//        hosts.add("139307");
+//        hosts.add("129007");
+//        hosts.add("130894");
+//        hosts.add("130966");
+//        hosts.add("131967");
+//        hosts.add("133678");
+//        hosts.add("134738");
+//        hosts.add("135896");
+//        hosts.add("135922");
+//        hosts.add("139025");
+//        hosts.add("139334");
+        ArrayList<String> metrics = new ArrayList<>();
+//        metrics.add("加速踏板位置1");
+//        metrics.add("当前转速下发动机负载百分比");
+//        metrics.add("实际发动机扭矩百分比");
+//        metrics.add("发动机转速");
+//        metrics.add("高精度总里程(00)");
+//        metrics.add("总发动机怠速使用燃料");
+//        metrics.add("后处理1排气质量流率");
+//        metrics.add("总发动机操作时间");
+//        metrics.add("总发动机使用的燃油");
+//        metrics.add("发动机冷却液温度");
+//        metrics.add("基于车轮的车辆速度");
+//        metrics.add("发动机燃料消耗率");
+        metrics.add("大气压力");
+//        metrics.add("发动机进气歧管1压力");
+//        metrics.add("发动机进气歧管1温度");
+//        metrics.add("发动机进气压力");
+//        metrics.add("车速");
+//        metrics.add("大气温度");
+//        metrics.add("发动机进气温度");
+//        metrics.add("高精度总里程(EE)");
+//        metrics.add("后处理1进气氮氧化物浓度");
+        long startTime = TimeUtil.string2Date("2016-06-02 15:00:00");
+        long endTime = TimeUtil.string2Date("2016-06-05 12:00:00");
+//        1464840000000
+//        1464883200000
+//        1465099200000
+//        1465056000000
+//        reader.preAggregateFunction(hosts, metrics, startTime, endTime, writer);
+//        Map<String, Map<String, List<FloatPoint>>> result5 = reader.getFloatRange(hosts, metrics, startTime,endTime,false);
+//        Map<String, Map<String, Double>> result = reader.getFloatRange(hosts, metrics, startTime, endTime, null, AggregationType.COUNT);
+//        Map<String, Map<String, Double>> result3 = reader.getFloatRange(hosts, metrics, startTime, endTime, null, AggregationType.COUNT);
+//        Map<String, Map<String, Double>> result2 = reader.getAggregationRange(hosts, metrics, startTime, endTime, null, AggregationType.COUNT);
+//        System.out.println(result.get(hosts.get(0)).get(metrics.get(0)));
+//        System.out.println(result3.get(hosts.get(0)).get(metrics.get(0)));
+//        System.out.println(result5.get(hosts.get(0)).get(metrics.get(0)).size());
+    }
+
+    private static void preAggTest(SagittariusReader reader, SagittariusWriter writer) throws ParseException, QueryExecutionException, TimeoutException, NoHostAvailableException, SparkException, IOException {
+        ArrayList<String> hosts = new ArrayList<>();
+        hosts.add("128934");
+//        hosts.add("128579");
+//        hosts.add("130889");
+//        hosts.add("131979");
+//        hosts.add("135931");
+//        hosts.add("139307");
+//        hosts.add("129007");
+//        hosts.add("130894");
+//        hosts.add("130966");
+//        hosts.add("131967");
+//        hosts.add("133678");
+//        hosts.add("134738");
+//        hosts.add("135896");
+//        hosts.add("135922");
+//        hosts.add("139025");
+//        hosts.add("139334");
+        ArrayList<String> metrics = new ArrayList<>();
+        metrics.add("加速踏板位置1");
+        metrics.add("当前转速下发动机负载百分比");
+        metrics.add("实际发动机扭矩百分比");
+        metrics.add("发动机转速");
+        metrics.add("高精度总里程(00)");
+        metrics.add("总发动机怠速使用燃料");
+        metrics.add("后处理1排气质量流率");
+        metrics.add("总发动机操作时间");
+        metrics.add("总发动机使用的燃油");
+        metrics.add("发动机冷却液温度");
+        metrics.add("基于车轮的车辆速度");
+        metrics.add("发动机燃料消耗率");
+        metrics.add("大气压力");
+        metrics.add("发动机进气歧管1压力");
+        metrics.add("发动机进气歧管1温度");
+        metrics.add("发动机进气压力");
+        metrics.add("车速");
+        metrics.add("大气温度");
+        metrics.add("发动机进气温度");
+        metrics.add("高精度总里程(EE)");
+        metrics.add("后处理1进气氮氧化物浓度");
+        long startTime = TimeUtil.string2Date("2016-06-01 00:00:00");
+        long endTime = TimeUtil.string2Date("2016-06-08 00:00:00");
+        FileWriter fileWritter = null;
+        try {
+            fileWritter = new FileWriter("D:\\ty\\PreAggTestResult" , true);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        BufferedWriter bufferWritter = new BufferedWriter(fileWritter);
+        List<String> queryHosts = new ArrayList<>();
+        for(String host : hosts){
+            queryHosts.add(host);
+            List<String> queryMetric = new ArrayList<>();
+            for(String metric : metrics){
+                queryMetric.add(metric);
+                for(long i = 1; i < 31; i++){
+                    long day = (long)(Math.random()*50);
+                    System.out.println(day);
+                    long queryStartTime = startTime + day * 86400000L;
+                    long queryEndTime = queryStartTime + i * 86400000L;
+                    long timer = System.currentTimeMillis();
+                    reader.preAggregateFunction(queryHosts, queryMetric, queryStartTime, queryEndTime, writer);
+//        Map<String, Map<String, Double>> result = reader.getFloatRange(hosts, metrics, startTime, endTime, null, AggregationType.COUNT);
+//        Map<String, Map<String, Double>> result = reader.getAggregationRange(hosts, metrics, startTime, endTime, null, AggregationType.COUNT, ValueType.FLOAT);
+                    timer = System.currentTimeMillis() - timer;
+                    bufferWritter.write(queryHosts.size()*queryMetric.size()*i + ","+ timer + "\n");
+                    bufferWritter.flush();
+                }
+            }
+        }
+//        System.out.println(startTime/86400000);
+//        System.out.println(result == null);
+//        for(String m : metrics){
+//            System.out.println(result.get(hosts.get(0)).get(m));
+//        }
+    }
+
     public static void test(Reader reader) {
         ArrayList<String> hosts = new ArrayList<>();
-        hosts.add("128275");
-        hosts.add("128579");
-        hosts.add("128932");
-        hosts.add("128933");
         hosts.add("128934");
         ArrayList<String> metrics = new ArrayList<>();
         metrics.add("当前转速下发动机负载百分比");
@@ -139,18 +272,18 @@ public class Example {
         System.out.println(result.get("clihost").get("climetric").getValue());
     }
 
-    private static void floatRead(Reader reader){
+    private static void floatRead(Reader reader) throws ParseException {
         ArrayList<String> hosts = new ArrayList<>();
         hosts.add("128998");
         ArrayList<String> metrics = new ArrayList<>();
         metrics.add("发动机转速");
-        long start = LocalDateTime.of(2016,6,10,0,0).toEpochSecond(TimeUtil.zoneOffset)*1000;
-        long end = LocalDateTime.of(2016,6,20,23,59).toEpochSecond(TimeUtil.zoneOffset)*1000;
+        long start = TimeUtil.string2Date("2016-06-01 00:00:00");
+        long end = TimeUtil.string2Date("2016-10-01 00:00:00");
         String filter = "value >= 33 and value <= 34";
         Map<String, Map<String, Double>> result = null;
         System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
         try {
-            result = reader.getFloatRange(hosts, metrics, start, end, null, AggregationType.COUNT);
+//            result = reader.getFloatRange(hosts, metrics, start, end, null, AggregationType.COUNT);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -388,7 +521,7 @@ public class Example {
         System.out.println(time2);
         //for (int i = 0; i < 3000; ++i) {
         try {
-            writer.insert("128280", "APP", time1, -1, TimePartition.DAY, 10l);
+            writer.insert("128280", "APP", time1, -1, TimePartition.DAY, "test");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -450,29 +583,29 @@ public class Example {
 
 //    private static void batchWriteBigData(SagittariusWriter writer, int threads, int batchSize, String directoryPath) throws IOException {
 //
-//        List<String> metricNames = new ArrayList<>();
-//        metricNames.add("加速踏板位置1");
-//        metricNames.add("当前转速下发动机负载百分比");
-//        metricNames.add("实际发动机扭矩百分比");
-//        metricNames.add("发动机转速");
-//        metricNames.add("高精度总里程(00)");
-//        metricNames.add("总发动机怠速使用燃料");
-//        metricNames.add("后处理1排气质量流率");
-//        metricNames.add("总发动机操作时间");
-//        metricNames.add("总发动机使用的燃油");
-//        metricNames.add("发动机冷却液温度");
-//        metricNames.add("基于车轮的车辆速度");
-//        metricNames.add("发动机燃料消耗率");
-//        metricNames.add("大气压力");
-//        metricNames.add("发动机进气歧管1压力");
-//        metricNames.add("发动机进气歧管1温度");
-//        metricNames.add("发动机进气压力");
-//        metricNames.add("车速");
-//        metricNames.add("发动机扭矩模式");
-//        metricNames.add("大气温度");
-//        metricNames.add("发动机进气温度");
-//        metricNames.add("高精度总里程(EE)");
-//        metricNames.add("后处理1进气氮氧化物浓度");
+//        List<String> metrics = new ArrayList<>();
+//        metrics.add("加速踏板位置1");
+//        metrics.add("当前转速下发动机负载百分比");
+//        metrics.add("实际发动机扭矩百分比");
+//        metrics.add("发动机转速");
+//        metrics.add("高精度总里程(00)");
+//        metrics.add("总发动机怠速使用燃料");
+//        metrics.add("后处理1排气质量流率");
+//        metrics.add("总发动机操作时间");
+//        metrics.add("总发动机使用的燃油");
+//        metrics.add("发动机冷却液温度");
+//        metrics.add("基于车轮的车辆速度");
+//        metrics.add("发动机燃料消耗率");
+//        metrics.add("大气压力");
+//        metrics.add("发动机进气歧管1压力");
+//        metrics.add("发动机进气歧管1温度");
+//        metrics.add("发动机进气压力");
+//        metrics.add("车速");
+//        metrics.add("发动机扭矩模式");
+//        metrics.add("大气温度");
+//        metrics.add("发动机进气温度");
+//        metrics.add("高精度总里程(EE)");
+//        metrics.add("后处理1进气氮氧化物浓度");
 //
 //        //a map to store all datas
 //        HashMap<String, ArrayList<Tuple22<FloatPoint,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,String,Float,Float,Float,Float>>> map = new HashMap<>();
@@ -529,7 +662,7 @@ public class Example {
 //        List<BatchWriteBigDataTask> tasks = new ArrayList<>();
 //        long start = System.currentTimeMillis();
 //        for(int i = 0; i < threads; i++){
-//            BatchWriteBigDataTask task = new BatchWriteBigDataTask(writer, i, batchSize, metricNames, map);
+//            BatchWriteBigDataTask task = new BatchWriteBigDataTask(writer, i, batchSize, metrics, map);
 //            task.start();
 //            tasks.add(task);
 //        }
@@ -553,29 +686,29 @@ public class Example {
 
     private static void batchWriteBigData2(SagittariusWriter writer, int threads, int batchSize, String directoryPath) throws IOException {
 
-        List<String> metricNames = new ArrayList<>();
-        metricNames.add("加速踏板位置1");
-        metricNames.add("当前转速下发动机负载百分比");
-        metricNames.add("实际发动机扭矩百分比");
-        metricNames.add("发动机转速");
-        metricNames.add("高精度总里程(00)");
-        metricNames.add("总发动机怠速使用燃料");
-        metricNames.add("后处理1排气质量流率");
-        metricNames.add("总发动机操作时间");
-        metricNames.add("总发动机使用的燃油");
-        metricNames.add("发动机冷却液温度");
-        metricNames.add("基于车轮的车辆速度");
-        metricNames.add("发动机燃料消耗率");
-        metricNames.add("大气压力");
-        metricNames.add("发动机进气歧管1压力");
-        metricNames.add("发动机进气歧管1温度");
-        metricNames.add("发动机进气压力");
-        metricNames.add("车速");
-        metricNames.add("发动机扭矩模式");
-        metricNames.add("大气温度");
-        metricNames.add("发动机进气温度");
-        metricNames.add("高精度总里程(EE)");
-        metricNames.add("后处理1进气氮氧化物浓度");
+        List<String> metrics = new ArrayList<>();
+        metrics.add("加速踏板位置1");
+        metrics.add("当前转速下发动机负载百分比");
+        metrics.add("实际发动机扭矩百分比");
+        metrics.add("发动机转速");
+        metrics.add("高精度总里程(00)");
+        metrics.add("总发动机怠速使用燃料");
+        metrics.add("后处理1排气质量流率");
+        metrics.add("总发动机操作时间");
+        metrics.add("总发动机使用的燃油");
+        metrics.add("发动机冷却液温度");
+        metrics.add("基于车轮的车辆速度");
+        metrics.add("发动机燃料消耗率");
+        metrics.add("大气压力");
+        metrics.add("发动机进气歧管1压力");
+        metrics.add("发动机进气歧管1温度");
+        metrics.add("发动机进气压力");
+        metrics.add("车速");
+        metrics.add("发动机扭矩模式");
+        metrics.add("大气温度");
+        metrics.add("发动机进气温度");
+        metrics.add("高精度总里程(EE)");
+        metrics.add("后处理1进气氮氧化物浓度");
 
         //a map to store all datas
         HashMap<String, ArrayList<Tuple22<FloatPoint,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,String,Float,Float,Float,Float>>> map = new HashMap<>();
@@ -613,7 +746,7 @@ public class Example {
 
                 Tuple22<FloatPoint,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,Float,String,Float,Float,Float,Float> rowData =
                         new Tuple22<>(
-                                new FloatPoint(metricNames.get(0), primaryTime, secondaryTime, myParseFloat(row[3])),
+                                new FloatPoint(metrics.get(0), primaryTime, secondaryTime, myParseFloat(row[3])),
                                 myParseFloat(row[4]),
                                 myParseFloat(row[5]),
                                 myParseFloat(row[6]),
@@ -652,7 +785,7 @@ public class Example {
         List<BatchWriteBigDataTask> tasks = new ArrayList<>();
         long start = System.currentTimeMillis();
         for(int i = 0; i < threads; i++){
-            BatchWriteBigDataTask task = new BatchWriteBigDataTask(writer, i, batchSize, metricNames, map);
+            BatchWriteBigDataTask task = new BatchWriteBigDataTask(writer, i, batchSize, metrics, map);
             task.start();
             tasks.add(task);
         }
@@ -677,6 +810,8 @@ public class Example {
     }
 
     private static void batchWriteBigData3(SagittariusWriter writer, int threads, int batchSize, String directoryPath) throws IOException {
+
+        //to compute the max number of frames devices sent to kmx per second
 
         List<Long> times = new ArrayList<>();
         //get all data files

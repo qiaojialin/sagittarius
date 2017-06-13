@@ -46,7 +46,7 @@ public class SagittariusClient {
         this.autoBatch = false;
 
         this.reader = new SagittariusReader(session, mappingManager, sparkContext, cache);
-        this.writer = new SagittariusWriter(session, mappingManager);
+        this.writer = new SagittariusWriter(session, mappingManager, cache);
     }
 
     public SagittariusClient(Cluster cluster, SparkConf sparkConf, int cacheSize, int batchSize, int lingerMs) {
