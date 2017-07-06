@@ -12,6 +12,7 @@ import com.sagittarius.cache.Cache;
 import com.sagittarius.exceptions.*;
 import com.sagittarius.read.internals.QueryStatement;
 import com.sagittarius.util.TimeUtil;
+import com.sagittarius.write.internals.Monitor;
 import com.sagittarius.write.internals.RecordAccumulator;
 import com.sagittarius.write.internals.Sender;
 import com.sun.scenario.effect.impl.sw.sse.SSEBlend_SRC_OUTPeer;
@@ -124,6 +125,48 @@ public class SagittariusWriter implements Writer {
         deleteStringStatement = session.prepare("delete from data_text where host = :h and metric = :m and time_slice = :t");
         deleteBooleanStatement = session.prepare("delete from data_boolean where host = :h and metric = :m and time_slice = :t");
         deleteGeoStatement = session.prepare("delete from data_geo where host = :h and metric = :m and time_slice = :t");
+    }
+
+    public SagittariusWriter(Session session, MappingManager mappingManager, int batchSize, int lingerMs, Monitor monitor) {
+        this.session = session;
+        this.mappingManager = mappingManager;
+        this.accumulator = new RecordAccumulator(batchSize, lingerMs, mappingManager);
+        this.sender = new Sender(session, this.accumulator, monitor);
+        this.autoBatch = true;
+        Thread sendThread = new Thread(sender);
+        sendThread.start();
+        preIntStatement = session.prepare("insert into data_int (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
+        preLongStatement = session.prepare("insert into data_long (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
+        preFloatStatement = session.prepare("insert into data_float (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
+        preDoubleStatement = session.prepare("insert into data_double (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
+        preStringStatement = session.prepare("insert into data_text (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
+        preBooleanStatement = session.prepare("insert into data_boolean (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
+        preGeoStatement = session.prepare("insert into data_geo (host, metric, time_slice, primary_time, secondary_time, latitude, longitude) values (:host, :metric, :ts, :pt, :st, :la, :lo)");
+
+        preIntStatementWithoutST = session.prepare("insert into data_int (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
+        preLongStatementWithoutST = session.prepare("insert into data_long (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
+        preFloatStatementWithoutST = session.prepare("insert into data_float (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
+        preDoubleStatementWithoutST = session.prepare("insert into data_double (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
+        preStringStatementWithoutST = session.prepare("insert into data_text (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
+        preBooleanStatementWithoutST = session.prepare("insert into data_boolean (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
+        preGeoStatementWithoutST = session.prepare("insert into data_geo (host, metric, time_slice, primary_time, latitude, longitude) values (:host, :metric, :ts, :pt, :la, :lo)");
+
+        preLatestStatement = session.prepare("insert into latest (host, metric, time_slice) values (:host, :metric, :time_slice)");
+
+        preAggreStatement = session.prepare("insert into data_aggregation (host, metric, time_slice, max_value, min_value, count_value, sum_value) values (:host, :metric, :ts, :max, :min, :cnt, :sum)");
+
+        deleteIntStatement = session.prepare("delete from data_int where host = :h and metric = :m and time_slice = :t");
+        deleteLongStatement = session.prepare("delete from data_long where host = :h and metric = :m and time_slice = :t");
+        deleteFloatStatement = session.prepare("delete from data_float where host = :h and metric = :m and time_slice = :t");
+        deleteDoubleStatement = session.prepare("delete from data_double where host = :h and metric = :m and time_slice = :t");
+        deleteStringStatement = session.prepare("delete from data_text where host = :h and metric = :m and time_slice = :t");
+        deleteBooleanStatement = session.prepare("delete from data_boolean where host = :h and metric = :m and time_slice = :t");
+        deleteGeoStatement = session.prepare("delete from data_geo where host = :h and metric = :m and time_slice = :t");
+    }
+
+    @Override
+    public void closeSender(){
+        sender.close();
     }
 
     public Data newData() {
@@ -704,7 +747,7 @@ public class SagittariusWriter implements Writer {
     }
 
     @Override
-    public void deleteRange(List<String> hosts, List<String> metrics, long startTime, long endTime) {
+    public void deleteRange(List<String> hosts, List<String> metrics, long startTime, long endTime) throws com.sagittarius.exceptions.QueryExecutionException, TimeoutException, com.sagittarius.exceptions.NoHostAvailableException {
         BatchStatement batchStatement = new BatchStatement();
         List<HostMetric> hostMetrics = getHostMetrics(hosts, metrics);
         for(HostMetric hostMetric : hostMetrics){
@@ -744,7 +787,16 @@ public class SagittariusWriter implements Writer {
                 BoundStatement statement = deleteStatement.bind(host, metric, timeSlice);
                 batchStatement.add(statement);
             }
-            session.execute(batchStatement);
+            try{
+                session.execute(batchStatement);
+            } catch (NoHostAvailableException e) {
+                throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
+            } catch (OperationTimedOutException | ReadTimeoutException e) {
+                throw new TimeoutException(e.getMessage(), e.getCause());
+            } catch (QueryExecutionException e) {
+                throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+            }
+
             batchStatement.clear();
         }
     }

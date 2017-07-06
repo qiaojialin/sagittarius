@@ -53,7 +53,7 @@ public class CassandraConnection {
                 logger.error("ip or port has something wrong：{}", e.getMessage());
             }
         }
-        QueryOptions queryOptions = new QueryOptions().setConsistencyLevel(ConsistencyLevel.LOCAL_QUORUM);
+        QueryOptions queryOptions = new QueryOptions().setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
 
 
         cluster = Cluster.builder().addContactPointsWithPorts(addresses)

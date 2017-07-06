@@ -29,6 +29,7 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import scala.Tuple2;
 
+import javax.validation.constraints.NotNull;
 import java.awt.*;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -1165,7 +1166,6 @@ public class SagittariusReader implements Reader {
     public Map<String, Map<String, List<FloatPoint>>> getFloatRange(List<String> hosts, List<String> metrics, long startTime, long endTime, boolean desc) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         if (endTime < startTime)
             return null;
-
         Map<String, Map<String, List<FloatPoint>>> result = new HashMap<>();
         List<FloatData> datas = new ArrayList<>();
 
@@ -3171,11 +3171,21 @@ public class SagittariusReader implements Reader {
         fw.close();
     }
 
-    private List<AggregationData> getAggResult2(String filter) {
-        SimpleStatement statement = new SimpleStatement("select * from data_aggregation where " + filter);
-        ResultSet resultSet = session.execute(statement);
-        Mapper<AggregationData> mapper = mappingManager.mapper(AggregationData.class);
-        List<AggregationData> result = mapper.map(resultSet).all();
+    private List<AggregationData> getAggResult2(String filter) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        List<AggregationData> result;
+        try{
+            SimpleStatement statement = new SimpleStatement("select * from data_aggregation where " + filter);
+            ResultSet resultSet = session.execute(statement);
+            Mapper<AggregationData> mapper = mappingManager.mapper(AggregationData.class);
+            result = mapper.map(resultSet).all();
+        } catch (NoHostAvailableException e) {
+            throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
+        } catch (OperationTimedOutException | ReadTimeoutException e) {
+            throw new TimeoutException(e.getMessage(), e.getCause());
+        } catch (QueryExecutionException e) {
+            throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+        }
+
         return result;
     }
 
@@ -3245,7 +3255,7 @@ public class SagittariusReader implements Reader {
         return result;
     }
 
-    private Double getSingleAggregationResult2(String host, String metric, long startTime, long endTime, String filter, AggregationType aggregationType, ValueType valueType) {
+    private Double getSingleAggregationResult2(String host, String metric, long startTime, long endTime, String filter, AggregationType aggregationType, ValueType valueType) throws com.sagittarius.exceptions.NoHostAvailableException, com.sagittarius.exceptions.QueryExecutionException, TimeoutException {
 
         Double result = 0d;
         ArrayList<String> hosts = new ArrayList<>();
@@ -3444,49 +3454,57 @@ public class SagittariusReader implements Reader {
     public void preAggregateFunction(List<String> hosts, List<String> metrics, long startTime, long endTime, Writer writer) throws com.sagittarius.exceptions.NoHostAvailableException, com.sagittarius.exceptions.QueryExecutionException, TimeoutException {
 
         // TODO: 17-3-28 if hosts == null then hosts = all hosts, so does metrics
-        long startTimeHour = (startTime+28800000) / 86400000;
-        long endTimeHour = (endTime+28800000) / 86400000;
-        while (startTimeHour < endTimeHour) {
-            long queryStartTime = startTimeHour * 86400000 - 28800000;
-            long queryEndTime = queryStartTime + 86400000;
-            for (String host : hosts) {
-                for (String metric : metrics) {
-                    ValueType valueType = getValueType(host, metric);
-                    String tablename = getTableByType(valueType);
-                    ArrayList<String> queryHost = new ArrayList<>();
-                    queryHost.add(host);
-                    ArrayList<String> queryMetric = new ArrayList<>();
-                    queryMetric.add(metric);
-                    String filter = getRangeQueryPredicates(queryHost, queryMetric, queryStartTime, queryEndTime, "", false).get(0);
-                    if(valueType == ValueType.STRING || valueType == ValueType.BOOLEAN || valueType == ValueType.GEO){
-                        SimpleStatement statement = new SimpleStatement("select count(value) from " + tablename + " where " + filter);
-                        ResultSet resultSet = session.execute(statement);
-                        double countResult = (double) (resultSet.all().get(0).getLong(0));
-                        if (countResult > 0) {
-                            writer.insert(host, metric, startTimeHour, 0, 0, countResult, 0);
+        try{
+            long startTimeHour = (startTime+28800000) / 86400000;
+            long endTimeHour = (endTime+28800000) / 86400000;
+            while (startTimeHour < endTimeHour) {
+                long queryStartTime = startTimeHour * 86400000 - 28800000;
+                long queryEndTime = queryStartTime + 86400000;
+                for (String host : hosts) {
+                    for (String metric : metrics) {
+                        ValueType valueType = getValueType(host, metric);
+                        String tablename = getTableByType(valueType);
+                        ArrayList<String> queryHost = new ArrayList<>();
+                        queryHost.add(host);
+                        ArrayList<String> queryMetric = new ArrayList<>();
+                        queryMetric.add(metric);
+                        String filter = getRangeQueryPredicates(queryHost, queryMetric, queryStartTime, queryEndTime, "", false).get(0);
+                        if(valueType == ValueType.STRING || valueType == ValueType.BOOLEAN || valueType == ValueType.GEO){
+                            SimpleStatement statement = new SimpleStatement("select count(value) from " + tablename + " where " + filter);
+                            ResultSet resultSet = session.execute(statement);
+                            double countResult = (double) (resultSet.all().get(0).getLong(0));
+                            if (countResult > 0) {
+                                writer.insert(host, metric, startTimeHour, 0, 0, countResult, 0);
+                            }
                         }
-                    }
-                    else {
-                        SimpleStatement statement = new SimpleStatement("select max(value) from " + tablename + " where " + filter);
-                        ResultSet resultSet = session.execute(statement);
-                        double maxResult = (double) (resultSet.all().get(0).getFloat(0));
-                        statement = new SimpleStatement("select min(value) from " + tablename + " where " + filter);
-                        resultSet = session.execute(statement);
-                        double minResult = (double) (resultSet.all().get(0).getFloat(0));
-                        statement = new SimpleStatement("select count(value) from " + tablename + " where " + filter);
-                        resultSet = session.execute(statement);
-                        double countResult = (double) (resultSet.all().get(0).getLong(0));
-                        statement = new SimpleStatement("select sum(value) from " + tablename + " where " + filter);
-                        resultSet = session.execute(statement);
-                        double sumResult = (double) (resultSet.all().get(0).getFloat(0));
-                        if (countResult > 0) {
-                            writer.insert(host, metric, startTimeHour, maxResult, minResult, countResult, sumResult);
-                        }
+                        else {
+                            SimpleStatement statement = new SimpleStatement("select max(value) from " + tablename + " where " + filter);
+                            ResultSet resultSet = session.execute(statement);
+                            double maxResult = (double) (resultSet.all().get(0).getFloat(0));
+                            statement = new SimpleStatement("select min(value) from " + tablename + " where " + filter);
+                            resultSet = session.execute(statement);
+                            double minResult = (double) (resultSet.all().get(0).getFloat(0));
+                            statement = new SimpleStatement("select count(value) from " + tablename + " where " + filter);
+                            resultSet = session.execute(statement);
+                            double countResult = (double) (resultSet.all().get(0).getLong(0));
+                            statement = new SimpleStatement("select sum(value) from " + tablename + " where " + filter);
+                            resultSet = session.execute(statement);
+                            double sumResult = (double) (resultSet.all().get(0).getFloat(0));
+                            if (countResult > 0) {
+                                writer.insert(host, metric, startTimeHour, maxResult, minResult, countResult, sumResult);
+                            }
 
+                        }
                     }
                 }
+                startTimeHour += 1;
             }
-            startTimeHour += 1;
+        } catch (NoHostAvailableException e) {
+            throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
+        } catch (OperationTimedOutException | ReadTimeoutException e) {
+            throw new TimeoutException(e.getMessage(), e.getCause());
+        } catch (QueryExecutionException e) {
+            throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
         }
     }
 

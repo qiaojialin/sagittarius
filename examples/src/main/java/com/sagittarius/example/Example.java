@@ -44,17 +44,18 @@ import static java.lang.System.setOut;
 public class Example {
     private static final Logger logger = LoggerFactory.getLogger(Example.class);
 
-    public static void main(String[] args) throws IOException, QueryExecutionException, TimeoutException, NoHostAvailableException, ParseException, SparkException {
+    public static void main(String[] args) throws IOException, QueryExecutionException, TimeoutException, NoHostAvailableException, ParseException, SparkException, InterruptedException {
         CassandraConnection connection = CassandraConnection.getInstance();
         Cluster cluster = connection.getCluster();
 
         SparkConf sparkConf = new SparkConf();
 //        sparkConf.setMaster("spark://192.168.3.17:7077").setAppName("test");
         sparkConf.setMaster("spark://192.168.15.114:7077").setAppName("kmxtest");
+        sparkConf.set("spark.ui.port", "4044");
         //to fix the can't assign from .. to .. Error
         String[] jars = {"examples-1.0-SNAPSHOT-jar-with-dependencies.jar"};
         sparkConf.setJars(jars);
-        sparkConf.set("spark.cassandra.connection.host", "192.168.15.120");
+        sparkConf.set("spark.cassandra.connection.host", "192.168.15.114");
         sparkConf.set("spark.cassandra.connection.port", "9042");
         sparkConf.set("spark.cassandra.connection.keep_alive_ms", "600000");
 //        sparkConf.set("spark.driver.host","192.168.15.123");
@@ -64,7 +65,7 @@ public class Example {
         //sparkConf.set("spark.executor.extraJavaOptions", "-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/home/agittarius/");
         //sparkConf.set("spark.scheduler.mode", "FAIR");
         //sparkConf.set("spark.executor.cores", "4");
-        sparkConf.set("spark.cores.max", "20");
+        sparkConf.set("spark.cores.max", "10");
         //sparkConf.set("spark.driver.maxResultSize", "20g");
         //sparkConf.set("spark.driver.memory", "20g");
 //        sparkConf.set("spark.executor.memory", "2g");
@@ -82,7 +83,13 @@ public class Example {
         //task3.start();
         //test(client.getSparkContext());
         //floatRead(reader);
-        insert(writer);
+//        for (int i = 0; i < 100; i++){
+//            writer.insert("1", "2", System.currentTimeMillis(), -1, TimePartition.DAY, 5);
+//            Thread.sleep(100);
+//        }
+//        writer.closeSender();
+//        Thread.sleep(10000);
+//        insert(writer);
 //        TestTask testTask = new TestTask(reader);
 //        testTask.start();
         //floatRead(reader);
@@ -101,7 +108,8 @@ public class Example {
         //readFuzzy(reader);
 //        long st = System.currentTimeMillis();
 //        floatRead(reader);
-//        System.out.println(System.currentTimeMillis() - st);
+        System.out.println(TimeUtil.date2String(1493568000123L));
+        System.out.println(TimeUtil.string2Date("2017-05-01 00:00:00.123"));
 //        test(reader);
 //        int threads = Integer.valueOf(args[0]);
 //        int batchSize = Integer.valueOf(args[1]);
@@ -110,6 +118,10 @@ public class Example {
 
 //        deleteTest(reader, writer);
         exit(0);
+
+    }
+
+    private static void countInfo(SagittariusReader reader){
 
     }
 
@@ -274,20 +286,18 @@ public class Example {
 
     private static void floatRead(Reader reader) throws ParseException {
         ArrayList<String> hosts = new ArrayList<>();
-        hosts.add("128998");
+        hosts.add("130667");
         ArrayList<String> metrics = new ArrayList<>();
-        metrics.add("发动机转速");
-        long start = TimeUtil.string2Date("2016-06-01 00:00:00");
-        long end = TimeUtil.string2Date("2016-10-01 00:00:00");
-        String filter = "value >= 33 and value <= 34";
-        Map<String, Map<String, Double>> result = null;
-        System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+        metrics.add("PP_0001_00_16825352");
+        long start = TimeUtil.string2Date("2017-05-01 00:00:00");
+        long end = TimeUtil.string2Date("2017-06-01 00:00:00");
+        Map<String, Map<String, List<FloatPoint>>> result = null;
         try {
-//            result = reader.getFloatRange(hosts, metrics, start, end, null, AggregationType.COUNT);
+            result = reader.getFloatRange(hosts, metrics, start, end, false);
         } catch (Exception e) {
             e.printStackTrace();
         }
-        System.out.println(result.get("128998").get("发动机转速"));
+        System.out.println(result.get("130667").get("PP_0001_00_16825352").size());
     }
 
     private static void batchTest1(SagittariusClient client, int threads, int runTime) {

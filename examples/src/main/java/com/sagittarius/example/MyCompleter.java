@@ -17,6 +17,14 @@ public class MyCompleter implements Completer {
             String[] substrings = input.split(" ");
             String substring = substrings[substrings.length-1].toLowerCase();
             int substart = cursor - substring.length();
+            if(substring.startsWith("getr")){
+                candidates.add("getRange");
+                return substart;
+            }
+            if(substring.startsWith("getp")){
+                candidates.add("getPoint");
+                return substart;
+            }
             if(substring.startsWith("getintp"))
             {
                 candidates.add("getIntPoint");
@@ -166,6 +174,7 @@ public class MyCompleter implements Completer {
             }
             if(substring.startsWith("g"))
             {
+                candidates.add("getSensorsByDeviceId");
                 candidates.add("getIntPoint");
                 candidates.add("getLongPoint");
                 candidates.add("getFloatPoint");
@@ -182,53 +191,12 @@ public class MyCompleter implements Completer {
                 candidates.add("getGeoRange");
                 return substart;
             }
-            if(substring.startsWith("inserti"))
-            {
-                candidates.add("insertInt");
-                return substart;
-            }
-            if(substring.startsWith("insertl"))
-            {
-                candidates.add("insertLong");
-                return substart;
-            }
-            if(substring.startsWith("insertf"))
-            {
-                candidates.add("insertFloat");
-                return substart;
-            }
-            if(substring.startsWith("insertd"))
-            {
-                candidates.add("insertDouble");
-                return substart;
-            }
-            if(substring.startsWith("insertb"))
-            {
-                candidates.add("insertBoolean");
-                return substart;
-            }
-            if(substring.startsWith("inserts"))
-            {
-                candidates.add("insertString");
-                return substart;
-            }
-            if(substring.startsWith("insertg"))
-            {
-                candidates.add("insertGeo");
-                return substart;
-            }
             if(substring.startsWith("i"))
             {
-                candidates.add("insertInt");
-                candidates.add("insertLong");
-                candidates.add("insertFloat");
-                candidates.add("insertDouble");
-                candidates.add("insertBoolean");
-                candidates.add("insertString");
-                candidates.add("insertGeo");
+                candidates.add("insert");
                 return substart;
             }
-            if(substring.startsWith("da"))
+            if(substring.startsWith("d"))
             {
                 candidates.add("date2long");
                 return substart;

@@ -2,12 +2,15 @@ package com.sagittarius.example;
 
 import com.datastax.driver.core.Cluster;
 import com.sagittarius.bean.common.TimePartition;
+import com.sagittarius.bean.common.ValueType;
 import com.sagittarius.bean.query.Shift;
 import com.sagittarius.bean.result.*;
 import com.sagittarius.core.SagittariusClient;
 import com.sagittarius.exceptions.NoHostAvailableException;
 import com.sagittarius.exceptions.QueryExecutionException;
 import com.sagittarius.exceptions.TimeoutException;
+import com.sagittarius.exceptions.UnregisteredHostMetricException;
+import com.sagittarius.read.Reader;
 import com.sagittarius.read.SagittariusReader;
 import com.sagittarius.util.TimeUtil;
 import com.sagittarius.write.SagittariusWriter;
@@ -16,49 +19,68 @@ import com.sun.javafx.binding.StringFormatter;
 import jline.console.*;
 import org.apache.spark.SparkConf;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import static java.lang.System.exit;
+import static java.lang.System.setOut;
 
 /**
  * Created by MXW on 17-4-17.
  */
 public class CLI {
 
-    public static void main(String[] args) throws IOException, NoHostAvailableException, QueryExecutionException, TimeoutException, InterruptedException {
-        if(args.length != 2){
-            System.out.println("invalid arguments: spark master, kmx ip.");
+    public static void main(String[] args) throws IOException, NoHostAvailableException, QueryExecutionException, TimeoutException, InterruptedException, UnregisteredHostMetricException {
+        if(args.length != 4){
+            System.out.println("invalid number of arguments: [kmx-ip] [kmx-port] [spark-master] [result-filename]");
             exit(0);
         }
+        String kmxip = args[0];
+        String kmxPort = args[1];
+        String sparkMaster = args[2];
+        String fileName = args[3];
+        FileWriter fileWritter = null;
+        try {
+            fileWritter = new FileWriter(fileName);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        BufferedWriter bufferWritter = new BufferedWriter(fileWritter);
 
         CassandraConnection connection = CassandraConnection.getInstance();
         Cluster cluster = connection.getCluster();
         SparkConf sparkConf = new SparkConf();
 //        sparkConf.setMaster("spark://192.168.3.17:7077").setAppName("KMX_CLI");
-        sparkConf.setMaster(args[1]).setAppName("KMX_CLI");
-        //to fix the can't assign from .. to .. Error
-        //String[] jars = {"examples-1.0-SNAPSHOT-jar-with-dependencies.jar"};
-        //sparkConf.setJars(jars);
-        sparkConf.set("spark.cassandra.connection.host", args[0]);
-        sparkConf.set("spark.cassandra.connection.port", "9042");
-        sparkConf.set("spark.cassandra.connection.keep_alive_ms", "600000");
+        sparkConf.setMaster(sparkMaster).setAppName("KMX_CLI");
+        sparkConf.set("spark.ui.port", "4044");
+        sparkConf.set("spark.cassandra.connection.host", kmxip);
+        sparkConf.set("spark.cassandra.connection.port", kmxPort);
+//        sparkConf.setMaster(args[2]).setAppName("KMX_CLI");
+//        sparkConf.set("spark.cassandra.connection.host", args[0]);
+//        sparkConf.set("spark.cassandra.connection.port", args[1]);
+//        sparkConf.set("spark.cassandra.connection.keep_alive_ms", "600000");
         //sparkConf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
         //sparkConf.set("spark.kryoserializer.buffer.max", "512m");
         //sparkConf.set("spark.executor.extraJavaOptions", "-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/home/agittarius/");
         //sparkConf.set("spark.scheduler.mode", "FAIR");
         //sparkConf.set("spark.executor.cores", "4");
-        sparkConf.set("spark.cores.max", "20");
+        sparkConf.set("spark.cores.max", "10");
         //sparkConf.set("spark.driver.maxResultSize", "20g");
         //sparkConf.set("spark.driver.memory", "20g");
-        sparkConf.set("spark.executor.memory", "2g");
+        sparkConf.set("spark.executor.memory", "1g");
         SagittariusClient client = new SagittariusClient(cluster, sparkConf, 10000);
         Writer writer = client.getWriter();
-        SagittariusReader reader = (SagittariusReader)client.getReader();
+        Reader reader = client.getReader();
 
         Thread.sleep(10000);
+        System.out.println(kmxip);
+        System.out.println(kmxPort);
+        System.out.println(sparkMaster);
+        System.out.println(fileName);
         ConsoleReader consoleReader = new ConsoleReader();
         MyCompleter myCompleter = new MyCompleter();
         consoleReader.addCompleter(myCompleter);
@@ -66,6 +88,7 @@ public class CLI {
         do
         {
             line = consoleReader.readLine("kmx>");
+            bufferWritter.write(line);
             if(line != null)
             {
                 if(line.startsWith("get")){
@@ -221,7 +244,8 @@ public class CLI {
                                 System.out.println("used time: " + timeStart + "ms");
                             }
                             else {
-                                System.out.println("invalid function !");
+                                System.out.println("invalid function name: " + arguments[0]);
+                                continue;
                             }
                         }
                         else if(arguments.length == 3){
@@ -365,7 +389,8 @@ public class CLI {
                                 System.out.println("used time: " + timeStart + "ms");
                             }
                             else {
-                                System.out.println("invalid function !");
+                                System.out.println("invalid function name: " + arguments[0]);
+                                continue;
                             }
                         }
                         else if(arguments.length == 5){
@@ -455,7 +480,8 @@ public class CLI {
                                 System.out.println("used time: " + timeStart + "ms");
                             }
                             else {
-                                System.out.println("invalid function !");
+                                System.out.println("invalid function name: " + arguments[0]);
+                                continue;
                             }
                         }
                         else {
@@ -536,8 +562,7 @@ public class CLI {
                             }
                             else if(arguments[0].equals("getFloatRange")){
                                 long timeStart = System.currentTimeMillis();
-                                Map<String, Map<String, List<FloatPoint>>> result = null;
-                                result = reader.getFloatRange(hosts, metrics, primTime, secoTime, false);
+                                Map<String, Map<String, List<FloatPoint>>> result = reader.getFloatRange(hosts, metrics, primTime, secoTime, false);
                                 System.out.println(String.format("%15s|%15s|%20s|%10s", "host", "metric", "primary_time", "value"));
                                 if(result != null && !result.isEmpty()){
                                     for(String h : hosts){
@@ -645,7 +670,8 @@ public class CLI {
                                 System.out.println("used time: " + timeStart + "ms");
                             }
                             else {
-                                System.out.println("invalid function !");
+                                System.out.println("invalid function name: " + arguments[0]);
+                                continue;
                             }
                         }
                         else {
@@ -655,7 +681,7 @@ public class CLI {
                 }
                 if(line.startsWith("insert")){
                     String[] arguments = line.split(" ");
-                    if(arguments.length == 7){
+                    if(arguments.length == 6){
                         String host = arguments[1];
                         String metric = arguments[2];
                         long primTime;
@@ -672,94 +698,103 @@ public class CLI {
                             System.out.println("invalid secondary_time !");
                             continue;
                         }
-                        TimePartition timePartition = produceTimePartitionFromArgs(arguments[5]);
-                        if(timePartition == null){
-                            System.out.println("invalid TimePartition !");
+                        ValueType valueType = reader.getValueType(host, metric);
+                        if(valueType == null){
+                            System.out.println("Unregistered device or sensor!");
                             continue;
                         }
-                        if(arguments[0].equals("insertInt")){
-                            int value;
-                            try {
-                                value = Integer.valueOf(arguments[6]);
-                            } catch (Exception e){
-                                System.out.println("invalid value !");
+                        if(arguments[0].equals("insert")){
+                            if(valueType == ValueType.INT){
+                                int value;
+                                try {
+                                    value = Integer.valueOf(arguments[5]);
+                                } catch (Exception e){
+                                    System.out.println("invalid int value format!");
+                                    continue;
+                                }
+                                long timeStart = System.currentTimeMillis();
+                                writer.insert(host, metric, primTime, secoTime, value);
+                                timeStart = System.currentTimeMillis() - timeStart;
+                                System.out.println("insert successfully ! used time: " + timeStart + "ms");
+                            }
+                            else if(valueType == ValueType.LONG){
+                                Long value;
+                                try {
+                                    value = Long.valueOf(arguments[5]);
+                                } catch (Exception e){
+                                    System.out.println("invalid long value format!");
+                                    continue;
+                                }
+                                long timeStart = System.currentTimeMillis();
+                                writer.insert(host, metric, primTime, secoTime, value);
+                                timeStart = System.currentTimeMillis() - timeStart;
+                                System.out.println("insert successfully ! used time: " + timeStart + "ms");
+                            }
+                            else if(valueType == ValueType.FLOAT){
+                                Float value;
+                                try {
+                                    value = Float.valueOf(arguments[5]);
+                                } catch (Exception e){
+                                    System.out.println("invalid float value format!");
+                                    continue;
+                                }
+                                long timeStart = System.currentTimeMillis();
+                                writer.insert(host, metric, primTime, secoTime, value);
+                                timeStart = System.currentTimeMillis() - timeStart;
+                                System.out.println("insert successfully ! used time: " + timeStart + "ms");
+                            }
+                            else if(valueType == ValueType.DOUBLE){
+                                Double value;
+                                try {
+                                    value = Double.valueOf(arguments[5]);
+                                } catch (Exception e){
+                                    System.out.println("invalid double value format!");
+                                    continue;
+                                }
+                                long timeStart = System.currentTimeMillis();
+                                writer.insert(host, metric, primTime, secoTime, value);
+                                timeStart = System.currentTimeMillis() - timeStart;
+                                System.out.println("insert successfully ! used time: " + timeStart + "ms");
+                            }
+                            else if(valueType == ValueType.STRING){
+                                String value;
+                                try {
+                                    value = String.valueOf(arguments[5]);
+                                } catch (Exception e){
+                                    System.out.println("invalid string value format!");
+                                    continue;
+                                }
+                                long timeStart = System.currentTimeMillis();
+                                writer.insert(host, metric, primTime, secoTime, value);
+                                timeStart = System.currentTimeMillis() - timeStart;
+                                System.out.println("insert successfully ! used time: " + timeStart + "ms");
+                            }
+                            else if(valueType == ValueType.BOOLEAN){
+                                Boolean value;
+                                try {
+                                    value = Boolean.valueOf(arguments[5]);
+                                } catch (Exception e){
+                                    System.out.println("invalid boolean value format!");
+                                    continue;
+                                }
+                                long timeStart = System.currentTimeMillis();
+                                writer.insert(host, metric, primTime, secoTime, value);
+                                timeStart = System.currentTimeMillis() - timeStart;
+                                System.out.println("insert successfully ! used time: " + timeStart + "ms");
+                            }
+                            else {
+                                System.out.println("invalid valueType!");
                                 continue;
                             }
-                            long timeStart = System.currentTimeMillis();
-                            writer.insert(host, metric, primTime, secoTime, timePartition, value);
-                            timeStart = System.currentTimeMillis() - timeStart;
-                            System.out.println("insert successfully ! used time: " + timeStart + "ms");
-                        }
-                        else if(arguments[0].equals("insertLong")){
-                            Long value;
-                            try {
-                                value = Long.valueOf(arguments[6]);
-                            } catch (Exception e){
-                                System.out.println("invalid value !");
-                                continue;
-                            }
-                            long timeStart = System.currentTimeMillis();
-                            writer.insert(host, metric, primTime, secoTime, timePartition, value);
-                            timeStart = System.currentTimeMillis() - timeStart;
-                            System.out.println("insert successfully ! used time: " + timeStart + "ms");
-                        }
-                        else if(arguments[0].equals("insertFloat")){
-                            Float value;
-                            try {
-                                value = Float.valueOf(arguments[6]);
-                            } catch (Exception e){
-                                System.out.println("invalid value !");
-                                continue;
-                            }
-                            long timeStart = System.currentTimeMillis();
-                            writer.insert(host, metric, primTime, secoTime, timePartition, value);
-                            timeStart = System.currentTimeMillis() - timeStart;
-                            System.out.println("insert successfully ! used time: " + timeStart + "ms");
-                        }
-                        else if(arguments[0].equals("insertDouble")){
-                            Double value;
-                            try {
-                                value = Double.valueOf(arguments[6]);
-                            } catch (Exception e){
-                                System.out.println("invalid value !");
-                                continue;
-                            }
-                            long timeStart = System.currentTimeMillis();
-                            writer.insert(host, metric, primTime, secoTime, timePartition, value);
-                            timeStart = System.currentTimeMillis() - timeStart;
-                            System.out.println("insert successfully ! used time: " + timeStart + "ms");
-                        }
-                        else if(arguments[0].equals("insertString")){
-                            String value;
-                            try {
-                                value = String.valueOf(arguments[6]);
-                            } catch (Exception e){
-                                System.out.println("invalid value !");
-                                continue;
-                            }
-                            long timeStart = System.currentTimeMillis();
-                            writer.insert(host, metric, primTime, secoTime, timePartition, value);
-                            timeStart = System.currentTimeMillis() - timeStart;
-                            System.out.println("insert successfully ! used time: " + timeStart + "ms");
-                        }
-                        else if(arguments[0].equals("insertBoolean")){
-                            Boolean value;
-                            try {
-                                value = Boolean.valueOf(arguments[6]);
-                            } catch (Exception e){
-                                System.out.println("invalid value !");
-                                continue;
-                            }
-                            long timeStart = System.currentTimeMillis();
-                            writer.insert(host, metric, primTime, secoTime, timePartition, value);
-                            timeStart = System.currentTimeMillis() - timeStart;
-                            System.out.println("insert successfully ! used time: " + timeStart + "ms");
+
+
                         }
                         else {
-                            System.out.println("invalid function !");
+                            System.out.println("invalid function name: " + arguments[0]);
+                            continue;
                         }
                     }
-                    else if(arguments.length == 8){
+                    else if(arguments.length == 7){
                         String host = arguments[1];
                         String metric = arguments[2];
                         long primTime;
@@ -776,37 +811,33 @@ public class CLI {
                             System.out.println("invalid secondary_time !");
                             continue;
                         }
-                        TimePartition timePartition = produceTimePartitionFromArgs(arguments[5]);
-                        if(timePartition == null){
-                            System.out.println("invalid TimePartition !");
-                            continue;
-                        }
-                        if(arguments[0].equals("insertGeo")){
+                        if(arguments[0].equals("insert")){
                             float lagitude;
                             float longitude;
                             try {
-                                lagitude = Integer.valueOf(arguments[6]);
+                                lagitude = Integer.valueOf(arguments[5]);
                             } catch (Exception e){
                                 System.out.println("invalid lagitude !");
                                 continue;
                             }
                             try {
-                                longitude = Integer.valueOf(arguments[7]);
+                                longitude = Integer.valueOf(arguments[6]);
                             } catch (Exception e){
                                 System.out.println("invalid longitude !");
                                 continue;
                             }
                             long timeStart = System.currentTimeMillis();
-                            writer.insert(host, metric, primTime, secoTime, timePartition, lagitude, longitude);
+                            writer.insert(host, metric, primTime, secoTime, lagitude, longitude);
                             timeStart = System.currentTimeMillis() - timeStart;
                             System.out.println("insert successfully ! used time: " + timeStart + "ms");
                         }
                         else {
-                            System.out.println("invalid function !");
+                            System.out.println("invalid function name: " + arguments[0]);
+                            continue;
                         }
                     }
                     else {
-                        System.out.println("wrong number of arguments!");
+                        System.out.println("Wrong number of arguments!");
                     }
                 }
                 if(line.startsWith("date")){
@@ -822,24 +853,12 @@ public class CLI {
                     }
                 }
             }
+            bufferWritter.write("\n");
+            bufferWritter.flush();
         }
         while(line!=null && !line.equals("exit"));
-    }
-
-    private static TimePartition produceTimePartitionFromArgs(String s){
-        if(s.equalsIgnoreCase("Y")){
-            return TimePartition.YEAR;
-        }
-        if(s.equalsIgnoreCase("M")){
-            return TimePartition.MONTH;
-        }
-        if(s.equalsIgnoreCase("W")){
-            return TimePartition.WEEK;
-        }
-        if(s.equalsIgnoreCase("D")){
-            return TimePartition.DAY;
-        }
-        return null;
+        bufferWritter.close();
+        exit(0);
     }
 
     private static Shift produceShiftFromArgs(String s){

@@ -2,13 +2,17 @@ package com.sagittarius.write.internals;
 
 import com.datastax.driver.core.BatchStatement;
 import com.datastax.driver.core.Statement;
+import com.datastax.driver.core.querybuilder.Batch;
 import com.datastax.driver.mapping.Mapper;
 import com.datastax.driver.mapping.MappingManager;
 import com.sagittarius.bean.common.HostMetricPair;
 import com.sagittarius.bean.common.TimePartition;
+import com.sagittarius.bean.common.ValueType;
 import com.sagittarius.bean.table.*;
 import com.sagittarius.util.TimeUtil;
+import com.sagittarius.bean.result.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -24,13 +28,14 @@ public class RecordBatch {
     final MappingManager mappingManager;
     final BatchStatement batchStatement;
     final Map<HostMetricPair, Latest> latestData;
+    final ArrayList<BatchPoint> rawData;
 
     public RecordBatch(long now, MappingManager mappingManager) {
         this.createdMs = now;
-
         this.mappingManager = mappingManager;
         this.batchStatement = new BatchStatement(BatchStatement.Type.UNLOGGED);
         this.latestData = new HashMap<>();
+        rawData = new ArrayList<>();
     }
 
     public int getRecordCount() {
@@ -63,6 +68,7 @@ public class RecordBatch {
         Statement statement = dataMapper.saveQuery(new IntData(host, metric, timeSlice, primaryTime, boxedSecondaryTime, value), timestamp(primaryTime * 1000), saveNullFields(false));
         batchStatement.add(statement);
         updateLatest(new Latest(host, metric, timeSlice));
+        rawData.add(new BatchPoint(host, metric, primaryTime, secondaryTime, ValueType.INT, value));
     }
 
     public void append(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, long value) {
@@ -72,6 +78,7 @@ public class RecordBatch {
         Statement statement = dataMapper.saveQuery(new LongData(host, metric, timeSlice, primaryTime, boxedSecondaryTime, value), timestamp(primaryTime * 1000), saveNullFields(false));
         batchStatement.add(statement);
         updateLatest(new Latest(host, metric, timeSlice));
+        rawData.add(new BatchPoint(host, metric, primaryTime, secondaryTime, ValueType.LONG, value));
     }
 
     public void append(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, float value) {
@@ -81,6 +88,7 @@ public class RecordBatch {
         Statement statement = dataMapper.saveQuery(new FloatData(host, metric, timeSlice, primaryTime, boxedSecondaryTime, value), timestamp(primaryTime * 1000), saveNullFields(false));
         batchStatement.add(statement);
         updateLatest(new Latest(host, metric, timeSlice));
+        rawData.add(new BatchPoint(host, metric, primaryTime, secondaryTime, ValueType.FLOAT, value));
     }
 
     public void append(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, double value) {
@@ -90,6 +98,7 @@ public class RecordBatch {
         Statement statement = dataMapper.saveQuery(new DoubleData(host, metric, timeSlice, primaryTime, boxedSecondaryTime, value), timestamp(primaryTime * 1000), saveNullFields(false));
         batchStatement.add(statement);
         updateLatest(new Latest(host, metric, timeSlice));
+        rawData.add(new BatchPoint(host, metric, primaryTime, secondaryTime, ValueType.DOUBLE, value));
     }
 
     public void append(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, boolean value) {
@@ -99,6 +108,7 @@ public class RecordBatch {
         Statement statement = dataMapper.saveQuery(new BooleanData(host, metric, timeSlice, primaryTime, boxedSecondaryTime, value), timestamp(primaryTime * 1000), saveNullFields(false));
         batchStatement.add(statement);
         updateLatest(new Latest(host, metric, timeSlice));
+        rawData.add(new BatchPoint(host, metric, primaryTime, secondaryTime, ValueType.BOOLEAN, value));
     }
 
     public void append(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, String value) {
@@ -108,6 +118,7 @@ public class RecordBatch {
         Statement statement = dataMapper.saveQuery(new StringData(host, metric, timeSlice, primaryTime, boxedSecondaryTime, value), timestamp(primaryTime * 1000), saveNullFields(false));
         batchStatement.add(statement);
         updateLatest(new Latest(host, metric, timeSlice));
+        rawData.add(new BatchPoint(host, metric, primaryTime, secondaryTime, ValueType.STRING, value));
     }
 
     public void append(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, float latitude, float longitude) {
@@ -117,5 +128,10 @@ public class RecordBatch {
         Statement statement = dataMapper.saveQuery(new GeoData(host, metric, timeSlice, primaryTime, boxedSecondaryTime, latitude, longitude), timestamp(primaryTime * 1000), saveNullFields(false));
         batchStatement.add(statement);
         updateLatest(new Latest(host, metric, timeSlice));
+        rawData.add(new BatchPoint(host, metric, primaryTime, secondaryTime, ValueType.GEO, latitude, longitude));
+    }
+
+    public ArrayList<BatchPoint> getRawData(){
+        return rawData;
     }
 }

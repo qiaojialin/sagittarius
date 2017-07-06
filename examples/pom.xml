@@ -58,7 +58,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>com.sagittarius.example.Example</mainClass>
+                            <mainClass>com.sagittarius.example.CLI</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>

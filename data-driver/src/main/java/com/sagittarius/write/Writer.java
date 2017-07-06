@@ -171,5 +171,7 @@ public interface Writer {
 
     void insert(String host, String metric, long timeSlice, double maxValue, double minValue, double countValue, double sumValue) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
-    void deleteRange(List<String> hosts, List<String> metrics, long startTime, long endTime);
+    void deleteRange(List<String> hosts, List<String> metrics, long startTime, long endTime) throws QueryExecutionException, TimeoutException, NoHostAvailableException;
+
+    void closeSender();
 }

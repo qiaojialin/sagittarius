@@ -16,6 +16,8 @@ import com.sagittarius.read.Reader;
 import com.sagittarius.read.SagittariusReader;
 import com.sagittarius.write.SagittariusWriter;
 import com.sagittarius.write.Writer;
+import com.sagittarius.write.internals.BasicMonitor;
+import com.sagittarius.write.internals.Monitor;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
 
@@ -30,6 +32,7 @@ public class SagittariusClient {
     private int batchSize; //if auto-batch, this define the batch size
     private int lingerMs; // if auto-batch, this define the wait time before a batch to be send
     private boolean autoBatch;
+    private Monitor monitor = new BasicMonitor();
 
     private SagittariusReader reader;
     private SagittariusWriter writer; //a none auto-batch writer
@@ -65,6 +68,23 @@ public class SagittariusClient {
         this.reader = new SagittariusReader(session, mappingManager, sparkContext, cache);
     }
 
+    public SagittariusClient(Cluster cluster, SparkConf sparkConf, int cacheSize, int batchSize, int lingerMs, Monitor monitor) {
+        cluster.getConfiguration().getCodecRegistry()
+                .register(new EnumNameCodec<>(TimePartition.class))
+                .register(new EnumNameCodec<>(ValueType.class))
+                .register(new SimpleTimestampCodec());
+        this.session = cluster.connect("sagittarius");
+        this.mappingManager = new MappingManager(session);
+        this.sparkContext  = new JavaSparkContext(sparkConf);
+        this.cache = new SynchronizedCache<>(new LRUCache<>(cacheSize));
+        this.batchSize = batchSize;
+        this.lingerMs = lingerMs;
+        this.autoBatch = true;
+
+        this.reader = new SagittariusReader(session, mappingManager, sparkContext, cache);
+        this.monitor = monitor;
+    }
+
     public Session getSession() {
         return session;
     }
@@ -80,7 +100,7 @@ public class SagittariusClient {
     public Writer getWriter() {
         if (autoBatch) {
             //if auto-batch, one thread new a writer will have a better performance
-            return new SagittariusWriter(session, mappingManager, batchSize, lingerMs);
+            return new SagittariusWriter(session, mappingManager, batchSize, lingerMs, monitor);
         } else {
             return writer;
         }

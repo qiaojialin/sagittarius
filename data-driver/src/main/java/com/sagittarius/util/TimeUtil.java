@@ -39,20 +39,30 @@ public class TimeUtil {
     public static String date2String(long date, SimpleDateFormat sdf) {
         return sdf.format(new Date(date));
     }
-
-    public static long string2Date(String time, SimpleDateFormat sdf) throws ParseException, NumberFormatException {
-        long result;
-        try{
-            result = sdf.parse(time).getTime();
-        } catch (Exception e){
-            result = -1;
-        }
-
-        return result;
+    public static String date2String(long time) {
+        if(time < 0) return "";
+        return LocalDateTime.ofEpochSecond(time/1000, (int)(time%1000*1000), zoneOffset).toString();
     }
 
+//    public static long string2Date(String time, SimpleDateFormat sdf) throws ParseException, NumberFormatException {
+//        long result;
+//        try{
+//            result = sdf.parse(time).getTime();
+//        } catch (Exception e){
+//            result = -1;
+//        }
+//
+//        return result;
+//    }
+
     public static long string2Date(String time) throws ParseException, NumberFormatException {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        DateTimeFormatter formatter;
+        if(time.length() == "yyyy-MM-dd HH:mm:ss".length()){
+            formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        }
+        else{
+            formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+        }
         long primaryTime = java.sql.Timestamp.valueOf(LocalDateTime.parse(time, formatter)).getTime();
         return primaryTime;
     }
