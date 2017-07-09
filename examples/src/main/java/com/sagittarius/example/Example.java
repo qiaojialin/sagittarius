@@ -107,9 +107,9 @@ public class Example {
         //readbyRange(reader);
         //readFuzzy(reader);
 //        long st = System.currentTimeMillis();
-//        floatRead(reader);
-        System.out.println(TimeUtil.date2String(1493568000123L));
-        System.out.println(TimeUtil.string2Date("2017-05-01 00:00:00.123"));
+        floatRead(reader);
+//        System.out.println(TimeUtil.date2String(1493568000123L));
+//        System.out.println(TimeUtil.string2Date("2017-05-01 00:00:00.123"));
 //        test(reader);
 //        int threads = Integer.valueOf(args[0]);
 //        int batchSize = Integer.valueOf(args[1]);
@@ -289,15 +289,17 @@ public class Example {
         hosts.add("130667");
         ArrayList<String> metrics = new ArrayList<>();
         metrics.add("PP_0001_00_16825352");
-        long start = TimeUtil.string2Date("2017-05-01 00:00:00");
-        long end = TimeUtil.string2Date("2017-06-01 00:00:00");
+        long start = TimeUtil.string2Date("2017-05-01 23:00:00");
+        System.out.println(start);
+        long end = TimeUtil.string2Date("2017-05-02 00:00:00");
+        System.out.println(end);
         Map<String, Map<String, List<FloatPoint>>> result = null;
         try {
             result = reader.getFloatRange(hosts, metrics, start, end, false);
         } catch (Exception e) {
             e.printStackTrace();
         }
-        System.out.println(result.get("130667").get("PP_0001_00_16825352").size());
+        System.out.println(result.get("130667").get("PP_0001_00_16825352").get(0).getPrimaryTime());
     }
 
     private static void batchTest1(SagittariusClient client, int threads, int runTime) {

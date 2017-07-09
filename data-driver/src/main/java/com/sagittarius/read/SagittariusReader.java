@@ -1030,20 +1030,16 @@ public class SagittariusReader implements Reader {
             boolean ifRepeat = true;
             switch (timePartition) {
                 case DAY:
-                    if (last.getDayOfYear() != end.getDayOfYear())
-                        ifRepeat = false;
+                    ifRepeat = last.plusDays(1).isAfter(end);
                     break;
                 case WEEK:
-                    if (last.getDayOfWeek().compareTo(end.getDayOfWeek()) <= 0)
-                        ifRepeat = false;
+                    ifRepeat = last.plusWeeks(1).isAfter(end);
                     break;
                 case MONTH:
-                    if (last.getMonthValue() != end.getMonthValue())
-                        ifRepeat = false;
+                    ifRepeat = last.plusMonths(1).isAfter(end);
                     break;
                 case YEAR:
-                    if (last.getYear() != end.getYear())
-                        ifRepeat = false;
+                    ifRepeat = last.plusYears(1).isAfter(end);
                     break;
             }
             if (!ifRepeat) {
