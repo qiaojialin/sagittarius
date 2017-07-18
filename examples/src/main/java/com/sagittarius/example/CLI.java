@@ -17,7 +17,6 @@ import com.sagittarius.write.SagittariusWriter;
 import com.sagittarius.write.Writer;
 import com.sun.javafx.binding.StringFormatter;
 import jline.console.*;
-import org.apache.spark.SparkConf;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
@@ -53,26 +52,7 @@ public class CLI {
 
         CassandraConnection connection = CassandraConnection.getInstance();
         Cluster cluster = connection.getCluster();
-        SparkConf sparkConf = new SparkConf();
-//        sparkConf.setMaster("spark://192.168.3.17:7077").setAppName("KMX_CLI");
-        sparkConf.setMaster(sparkMaster).setAppName("KMX_CLI");
-        sparkConf.set("spark.ui.port", "4044");
-        sparkConf.set("spark.cassandra.connection.host", kmxip);
-        sparkConf.set("spark.cassandra.connection.port", kmxPort);
-//        sparkConf.setMaster(args[2]).setAppName("KMX_CLI");
-//        sparkConf.set("spark.cassandra.connection.host", args[0]);
-//        sparkConf.set("spark.cassandra.connection.port", args[1]);
-//        sparkConf.set("spark.cassandra.connection.keep_alive_ms", "600000");
-        //sparkConf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
-        //sparkConf.set("spark.kryoserializer.buffer.max", "512m");
-        //sparkConf.set("spark.executor.extraJavaOptions", "-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/home/agittarius/");
-        //sparkConf.set("spark.scheduler.mode", "FAIR");
-        //sparkConf.set("spark.executor.cores", "4");
-        sparkConf.set("spark.cores.max", "10");
-        //sparkConf.set("spark.driver.maxResultSize", "20g");
-        //sparkConf.set("spark.driver.memory", "20g");
-        sparkConf.set("spark.executor.memory", "1g");
-        SagittariusClient client = new SagittariusClient(cluster, sparkConf, 10000);
+        SagittariusClient client = new SagittariusClient(cluster, 10000);
         Writer writer = client.getWriter();
         Reader reader = client.getReader();
 

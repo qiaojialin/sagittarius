@@ -2,7 +2,6 @@ package com.sagittarius.write.internals;
 
 import com.datastax.driver.mapping.MappingManager;
 import com.sagittarius.bean.common.TimePartition;
-import org.apache.hadoop.yarn.webapp.hamlet.HamletSpec;
 
 import java.util.ArrayDeque;
 import java.util.Deque;

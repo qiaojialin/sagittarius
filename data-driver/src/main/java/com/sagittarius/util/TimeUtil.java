@@ -1,8 +1,6 @@
 package com.sagittarius.util;
 
 import com.sagittarius.bean.common.TimePartition;
-import javafx.scene.input.DataFormat;
-import org.apache.commons.net.ntp.TimeStamp;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -56,6 +54,9 @@ public class TimeUtil {
 //    }
 
     public static long string2Date(String time) throws ParseException, NumberFormatException {
+        if(time == null){
+            return -1L;
+        }
         DateTimeFormatter formatter;
         if(time.length() == "yyyy-MM-dd HH:mm:ss".length()){
             formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");

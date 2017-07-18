@@ -4,13 +4,10 @@ package com.sagittarius.read;
 import com.sagittarius.bean.common.ValueType;
 import com.sagittarius.bean.query.*;
 import com.sagittarius.bean.result.*;
-import com.sagittarius.bean.table.GeoData;
 import com.sagittarius.bean.table.HostMetric;
 import com.sagittarius.exceptions.NoHostAvailableException;
 import com.sagittarius.exceptions.QueryExecutionException;
-import com.sagittarius.exceptions.SparkException;
 import com.sagittarius.exceptions.TimeoutException;
-import com.sagittarius.write.SagittariusWriter;
 import com.sagittarius.write.Writer;
 
 import java.io.IOException;
@@ -359,47 +356,47 @@ public interface Reader {
      */
     Map<String, Map<String, List<GeoPoint>>> getGeoRange(List<String> hosts, List<String> metrics, long startTime, long endTime, boolean desc) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
-    Map<String, Map<String, List<IntPoint>>> getIntRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws NoHostAvailableException, TimeoutException, QueryExecutionException, SparkException;
+    Map<String, Map<String, List<IntPoint>>> getIntRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
-    Map<String, Map<String, List<LongPoint>>> getLongRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws NoHostAvailableException, TimeoutException, QueryExecutionException, SparkException;
+    Map<String, Map<String, List<LongPoint>>> getLongRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
-    Map<String, Map<String, List<FloatPoint>>> getFloatRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws NoHostAvailableException, TimeoutException, QueryExecutionException, SparkException;
+    Map<String, Map<String, List<FloatPoint>>> getFloatRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
-    Map<String, Map<String, List<DoublePoint>>> getDoubleRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws NoHostAvailableException, TimeoutException, QueryExecutionException, SparkException;
+    Map<String, Map<String, List<DoublePoint>>> getDoubleRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
-    Map<String, Map<String, List<BooleanPoint>>> getBooleanRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws NoHostAvailableException, TimeoutException, QueryExecutionException, SparkException;
+    Map<String, Map<String, List<BooleanPoint>>> getBooleanRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
-    Map<String, Map<String, List<StringPoint>>> getStringRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws NoHostAvailableException, TimeoutException, QueryExecutionException, SparkException;
+    Map<String, Map<String, List<StringPoint>>> getStringRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
-    Map<String, Map<String, List<GeoPoint>>> getGeoRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws NoHostAvailableException, TimeoutException, QueryExecutionException, SparkException;
+    Map<String, Map<String, List<GeoPoint>>> getGeoRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
-    Map<String, Map<String, Double>> getIntRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws NoHostAvailableException, TimeoutException, QueryExecutionException, SparkException;
+    Map<String, Map<String, Double>> getIntRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
-    Map<String, Map<String, Double>> getLongRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws NoHostAvailableException, TimeoutException, QueryExecutionException, SparkException;
+    Map<String, Map<String, Double>> getLongRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
-    Map<String, Map<String, Double>> getFloatRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws NoHostAvailableException, TimeoutException, QueryExecutionException, SparkException;
+    Map<String, Map<String, Double>> getFloatRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
-    Map<String, Map<String, Double>> getDoubleRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws NoHostAvailableException, TimeoutException, QueryExecutionException, SparkException;
+    Map<String, Map<String, Double>> getDoubleRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
-    Map<String, Map<String, Double>> getBooleanRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws NoHostAvailableException, TimeoutException, QueryExecutionException, SparkException;
+    Map<String, Map<String, Double>> getBooleanRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
-    Map<String, Map<String, Double>> getStringRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws NoHostAvailableException, TimeoutException, QueryExecutionException, SparkException;
+    Map<String, Map<String, Double>> getStringRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
-    Map<String, Map<String, Double>> getGeoRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws NoHostAvailableException, TimeoutException, QueryExecutionException, SparkException;
+    Map<String, Map<String, Double>> getGeoRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
-    void exportIntCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, NoHostAvailableException, TimeoutException, QueryExecutionException, SparkException;
-
-    void exportLongCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, NoHostAvailableException, TimeoutException, QueryExecutionException, SparkException;
-
-    void exportFloatCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, NoHostAvailableException, TimeoutException, QueryExecutionException, SparkException;
-
-    void exportDoubleCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, NoHostAvailableException, TimeoutException, QueryExecutionException, SparkException;
-
-    void exportBooleanCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, NoHostAvailableException, TimeoutException, QueryExecutionException, SparkException;
-
-    void exportStringCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, NoHostAvailableException, TimeoutException, QueryExecutionException, SparkException;
-
-    void exportGeoCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, NoHostAvailableException, TimeoutException, QueryExecutionException, SparkException;
+//    void exportIntCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, NoHostAvailableException, TimeoutException, QueryExecutionException;
+//
+//    void exportLongCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, NoHostAvailableException, TimeoutException, QueryExecutionException;
+//
+//    void exportFloatCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, NoHostAvailableException, TimeoutException, QueryExecutionException;
+//
+//    void exportDoubleCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, NoHostAvailableException, TimeoutException, QueryExecutionException;
+//
+//    void exportBooleanCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, NoHostAvailableException, TimeoutException, QueryExecutionException;
+//
+//    void exportStringCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, NoHostAvailableException, TimeoutException, QueryExecutionException;
+//
+//    void exportGeoCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, NoHostAvailableException, TimeoutException, QueryExecutionException;
 
     void preAggregateFunction(List<String> hosts, List<String> metrics, long startTime, long endTime, Writer writer) throws com.sagittarius.exceptions.NoHostAvailableException, com.sagittarius.exceptions.QueryExecutionException, TimeoutException;
 

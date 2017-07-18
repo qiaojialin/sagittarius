@@ -13,7 +13,6 @@ import com.sagittarius.write.SagittariusWriter;
 import com.sagittarius.write.Writer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.Tuple22;
 
 import java.util.*;
 

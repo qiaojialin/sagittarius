@@ -18,8 +18,8 @@ import com.sagittarius.write.SagittariusWriter;
 import com.sagittarius.write.Writer;
 import com.sagittarius.write.internals.BasicMonitor;
 import com.sagittarius.write.internals.Monitor;
-import org.apache.spark.SparkConf;
-import org.apache.spark.api.java.JavaSparkContext;
+//import org.apache.spark.SparkConf;
+//import org.apache.spark.api.java.JavaSparkContext;
 
 /**
  * client which expose interfaces to user
@@ -27,7 +27,7 @@ import org.apache.spark.api.java.JavaSparkContext;
 public class SagittariusClient {
     private Session session;
     private MappingManager mappingManager;
-    private JavaSparkContext sparkContext;
+//    private JavaSparkContext sparkContext;
     private Cache<HostMetricPair, TypePartitionPair> cache;
     private int batchSize; //if auto-batch, this define the batch size
     private int lingerMs; // if auto-batch, this define the wait time before a batch to be send
@@ -37,51 +37,54 @@ public class SagittariusClient {
     private SagittariusReader reader;
     private SagittariusWriter writer; //a none auto-batch writer
 
-    public SagittariusClient(Cluster cluster, SparkConf sparkConf, int cacheSize) {
+//    public SagittariusClient(Cluster cluster, SparkConf sparkConf, int cacheSize) {
+    public SagittariusClient(Cluster cluster, int cacheSize) {
         cluster.getConfiguration().getCodecRegistry()
                 .register(new EnumNameCodec<>(TimePartition.class))
                 .register(new EnumNameCodec<>(ValueType.class))
                 .register(new SimpleTimestampCodec());
         this.session = cluster.connect("sagittarius");
         this.mappingManager = new MappingManager(session);
-        this.sparkContext  = new JavaSparkContext(sparkConf);
+//        this.sparkContext  = new JavaSparkContext(sparkConf);
         this.cache = new SynchronizedCache<>(new LRUCache<>(cacheSize));
         this.autoBatch = false;
 
-        this.reader = new SagittariusReader(session, mappingManager, sparkContext, cache);
+        this.reader = new SagittariusReader(session, mappingManager, cache);
         this.writer = new SagittariusWriter(session, mappingManager, cache);
     }
 
-    public SagittariusClient(Cluster cluster, SparkConf sparkConf, int cacheSize, int batchSize, int lingerMs) {
+//    public SagittariusClient(Cluster cluster, SparkConf sparkConf, int cacheSize, int batchSize, int lingerMs) {
+    public SagittariusClient(Cluster cluster, int cacheSize, int batchSize, int lingerMs) {
         cluster.getConfiguration().getCodecRegistry()
                 .register(new EnumNameCodec<>(TimePartition.class))
                 .register(new EnumNameCodec<>(ValueType.class))
                 .register(new SimpleTimestampCodec());
         this.session = cluster.connect("sagittarius");
         this.mappingManager = new MappingManager(session);
-        this.sparkContext  = new JavaSparkContext(sparkConf);
+//        this.sparkContext  = new JavaSparkContext(sparkConf);
         this.cache = new SynchronizedCache<>(new LRUCache<>(cacheSize));
         this.batchSize = batchSize;
         this.lingerMs = lingerMs;
         this.autoBatch = true;
 
-        this.reader = new SagittariusReader(session, mappingManager, sparkContext, cache);
+        this.reader = new SagittariusReader(session, mappingManager, cache);
     }
 
-    public SagittariusClient(Cluster cluster, SparkConf sparkConf, int cacheSize, int batchSize, int lingerMs, Monitor monitor) {
+//    public SagittariusClient(Cluster cluster, SparkConf sparkConf, int cacheSize, int batchSize, int lingerMs, Monitor monitor) {
+    public SagittariusClient(Cluster cluster, int cacheSize, int batchSize, int lingerMs, Monitor monitor) {
         cluster.getConfiguration().getCodecRegistry()
                 .register(new EnumNameCodec<>(TimePartition.class))
                 .register(new EnumNameCodec<>(ValueType.class))
                 .register(new SimpleTimestampCodec());
         this.session = cluster.connect("sagittarius");
         this.mappingManager = new MappingManager(session);
-        this.sparkContext  = new JavaSparkContext(sparkConf);
+//        this.sparkContext  = new JavaSparkContext(sparkConf);
         this.cache = new SynchronizedCache<>(new LRUCache<>(cacheSize));
         this.batchSize = batchSize;
         this.lingerMs = lingerMs;
         this.autoBatch = true;
 
-        this.reader = new SagittariusReader(session, mappingManager, sparkContext, cache);
+        this.reader = new SagittariusReader(session, mappingManager, cache);
         this.monitor = monitor;
     }
 
@@ -100,7 +103,7 @@ public class SagittariusClient {
     public Writer getWriter() {
         if (autoBatch) {
             //if auto-batch, one thread new a writer will have a better performance
-            return new SagittariusWriter(session, mappingManager, batchSize, lingerMs, monitor);
+            return new SagittariusWriter(session, mappingManager, cache, batchSize, lingerMs, monitor);
         } else {
             return writer;
         }

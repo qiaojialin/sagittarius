@@ -1,10 +1,13 @@
 package com.sagittarius.bean.query;
 
-public enum AggregationType {
-    MIN("MIN"), MAX("MAX"), AVG("AVG"), SUM("SUM"), COUNT("COUNT");
+/**
+ * Created by Leah on 2017/7/18.
+ */
+public enum Permission {
+    READ("READ"), WRITE("WRITE"), READWRITE("READWRITE");
 
     private String _name;
-    AggregationType(String name){
+    Permission(String name){
         this._name = name;
     }
 

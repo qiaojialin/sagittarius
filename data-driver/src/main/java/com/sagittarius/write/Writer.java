@@ -2,10 +2,7 @@ package com.sagittarius.write;
 
 import com.sagittarius.bean.common.MetricMetadata;
 import com.sagittarius.bean.common.TimePartition;
-import com.sagittarius.exceptions.NoHostAvailableException;
-import com.sagittarius.exceptions.QueryExecutionException;
-import com.sagittarius.exceptions.TimeoutException;
-import com.sagittarius.exceptions.UnregisteredHostMetricException;
+import com.sagittarius.exceptions.*;
 
 import java.util.List;
 import java.util.Map;
@@ -36,6 +33,13 @@ public interface Writer {
      * which you think most important as the primaryTime. Besides, primaryTime
      * must have a meaningful value while secondaryTime can be null by setting
      * it to -1.
+     * we provide a method without the TimePartition parameter, in this method
+     * we will automatically query the timePartition information. if the device
+     * or sensor doesn't exsist, the method will throw a Unregistered device or
+     * sensor Exception.
+     * the no-timepartition-parm method will also check if the datatype of parameter VALUE
+     * and the registered sensor's datatype matches, or it will throw an
+     * datatype mismatch Exception.
      * @param host the host name(or id)
      * @param metric the metric name(or id)
      * @param primaryTime timestamp in millisecond, must have a meaningful value
@@ -45,7 +49,7 @@ public interface Writer {
      */
     void insert(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, int value) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
-    void insert(String host, String metric, long primaryTime, long secondaryTime, int value) throws NoHostAvailableException, TimeoutException, QueryExecutionException, UnregisteredHostMetricException;
+    void insert(String host, String metric, long primaryTime, long secondaryTime, int value) throws NoHostAvailableException, TimeoutException, QueryExecutionException, UnregisteredHostMetricException, DataTypeMismatchException;
 
     /**
      * insert a metric data point info whose metric value type is LONG.
@@ -56,6 +60,13 @@ public interface Writer {
      * which you think most important as the primaryTime. Besides, primaryTime
      * must have a meaningful value while secondaryTime can be null by setting
      * it to -1.
+     * we provide a method without the TimePartition parameter, in this method
+     * we will automatically query the timePartition information. if the device
+     * or sensor doesn't exsist, the method will throw a Unregistered device or
+     * sensor Exception.
+     * the no-timepartition-parm method will also check if the datatype of parameter VALUE
+     * and the registered sensor's datatype matches, or it will throw an
+     * datatype mismatch Exception.
      * @param host the host name(or id)
      * @param metric the metric name(or id)
      * @param primaryTime timestamp in millisecond, must have a meaningful value
@@ -65,7 +76,7 @@ public interface Writer {
      */
     void insert(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, long value) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
-    void insert(String host, String metric, long primaryTime, long secondaryTime, long value) throws NoHostAvailableException, TimeoutException, QueryExecutionException, UnregisteredHostMetricException;
+    void insert(String host, String metric, long primaryTime, long secondaryTime, long value) throws NoHostAvailableException, TimeoutException, QueryExecutionException, UnregisteredHostMetricException, DataTypeMismatchException;
 
     /**
      * insert a metric data point info whose metric value type is FLOAT.
@@ -76,6 +87,13 @@ public interface Writer {
      * which you think most important as the primaryTime. Besides, primaryTime
      * must have a meaningful value while secondaryTime can be null by setting
      * it to -1.
+     * we provide a method without the TimePartition parameter, in this method
+     * we will automatically query the timePartition information. if the device
+     * or sensor doesn't exsist, the method will throw a Unregistered device or
+     * sensor Exception.
+     * the no-timepartition-parm method will also check if the datatype of parameter VALUE
+     * and the registered sensor's datatype matches, or it will throw an
+     * datatype mismatch Exception.
      * @param host the host name(or id)
      * @param metric the metric name(or id)
      * @param primaryTime timestamp in millisecond, must have a meaningful value
@@ -85,7 +103,7 @@ public interface Writer {
      */
     void insert(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, float value) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
-    void insert(String host, String metric, long primaryTime, long secondaryTime, float value) throws NoHostAvailableException, TimeoutException, QueryExecutionException, UnregisteredHostMetricException;
+    void insert(String host, String metric, long primaryTime, long secondaryTime, float value) throws NoHostAvailableException, TimeoutException, QueryExecutionException, UnregisteredHostMetricException, DataTypeMismatchException;
 
     /**
      * insert a metric data point info whose metric value type is DOUBLE.
@@ -96,6 +114,13 @@ public interface Writer {
      * which you think most important as the primaryTime. Besides, primaryTime
      * must have a meaningful value while secondaryTime can be null by setting
      * it to -1.
+     * we provide a method without the TimePartition parameter, in this method
+     * we will automatically query the timePartition information. if the device
+     * or sensor doesn't exsist, the method will throw a Unregistered device or
+     * sensor Exception.
+     * the no-timepartition-parm method will also check if the datatype of parameter VALUE
+     * and the registered sensor's datatype matches, or it will throw an
+     * datatype mismatch Exception.
      * @param host the host name(or id)
      * @param metric the metric name(or id)
      * @param primaryTime timestamp in millisecond, must have a meaningful value
@@ -105,7 +130,7 @@ public interface Writer {
      */
     void insert(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, double value) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
-    void insert(String host, String metric, long primaryTime, long secondaryTime, double value) throws NoHostAvailableException, TimeoutException, QueryExecutionException, UnregisteredHostMetricException;
+    void insert(String host, String metric, long primaryTime, long secondaryTime, double value) throws NoHostAvailableException, TimeoutException, QueryExecutionException, UnregisteredHostMetricException, DataTypeMismatchException;
 
     /**
      * insert a metric data point info whose metric value type is BOOLEAN.
@@ -116,6 +141,13 @@ public interface Writer {
      * which you think most important as the primaryTime. Besides, primaryTime
      * must have a meaningful value while secondaryTime can be null by setting
      * it to -1.
+     * we provide a method without the TimePartition parameter, in this method
+     * we will automatically query the timePartition information. if the device
+     * or sensor doesn't exsist, the method will throw a Unregistered device or
+     * sensor Exception.
+     * the no-timepartition-parm method will also check if the datatype of parameter VALUE
+     * and the registered sensor's datatype matches, or it will throw an
+     * datatype mismatch Exception.
      * @param host the host name(or id)
      * @param metric the metric name(or id)
      * @param primaryTime timestamp in millisecond, must have a meaningful value
@@ -125,7 +157,7 @@ public interface Writer {
      */
     void insert(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, boolean value) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
-    void insert(String host, String metric, long primaryTime, long secondaryTime, boolean value) throws NoHostAvailableException, TimeoutException, QueryExecutionException, UnregisteredHostMetricException;
+    void insert(String host, String metric, long primaryTime, long secondaryTime, boolean value) throws NoHostAvailableException, TimeoutException, QueryExecutionException, UnregisteredHostMetricException, DataTypeMismatchException;
 
     /**
      * insert a metric data point info whose metric value type is STRING.
@@ -136,6 +168,13 @@ public interface Writer {
      * which you think most important as the primaryTime. Besides, primaryTime
      * must have a meaningful value while secondaryTime can be null by setting
      * it to -1.
+     * we provide a method without the TimePartition parameter, in this method
+     * we will automatically query the timePartition information. if the device
+     * or sensor doesn't exsist, the method will throw a Unregistered device or
+     * sensor Exception.
+     * the no-timepartition-parm method will also check if the datatype of parameter VALUE
+     * and the registered sensor's datatype matches, or it will throw an
+     * datatype mismatch Exception.
      * @param host the host name(or id)
      * @param metric the metric name(or id)
      * @param primaryTime timestamp in millisecond, must have a meaningful value
@@ -145,7 +184,7 @@ public interface Writer {
      */
     void insert(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, String value) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
-    void insert(String host, String metric, long primaryTime, long secondaryTime, String value) throws NoHostAvailableException, TimeoutException, QueryExecutionException, UnregisteredHostMetricException;
+    void insert(String host, String metric, long primaryTime, long secondaryTime, String value) throws NoHostAvailableException, TimeoutException, QueryExecutionException, UnregisteredHostMetricException, DataTypeMismatchException;
 
     /**
      * insert a metric data point info whose metric value type is GEO.
@@ -157,6 +196,13 @@ public interface Writer {
      * which you think most important as the primaryTime. Besides, primaryTime
      * must have a meaningful value while secondaryTime can be null by setting
      * it to -1.
+     * we provide a method without the TimePartition parameter, in this method
+     * we will automatically query the timePartition information. if the device
+     * or sensor doesn't exsist, the method will throw a Unregistered device or
+     * sensor Exception.
+     * the no-timepartition-parm method will also check if the datatype of parameter VALUE
+     * and the registered sensor's datatype matches, or it will throw an
+     * datatype mismatch Exception.
      * @param host the host name(or id)
      * @param metric the metric name(or id)
      * @param primaryTime timestamp in millisecond, must have a meaningful value
@@ -167,7 +213,7 @@ public interface Writer {
      */
     void insert(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, float latitude, float longitude) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
-    void insert(String host, String metric, long primaryTime, long secondaryTime, float latitude, float longitude) throws NoHostAvailableException, TimeoutException, QueryExecutionException, UnregisteredHostMetricException;
+    void insert(String host, String metric, long primaryTime, long secondaryTime, float latitude, float longitude) throws NoHostAvailableException, TimeoutException, QueryExecutionException, UnregisteredHostMetricException, DataTypeMismatchException;
 
     void insert(String host, String metric, long timeSlice, double maxValue, double minValue, double countValue, double sumValue) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 

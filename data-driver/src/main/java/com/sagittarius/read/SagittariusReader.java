@@ -8,8 +8,8 @@ import com.datastax.driver.core.exceptions.ReadTimeoutException;
 import com.datastax.driver.mapping.Mapper;
 import com.datastax.driver.mapping.MappingManager;
 import com.datastax.driver.mapping.Result;
-import com.datastax.spark.connector.japi.CassandraRow;
-import com.datastax.spark.connector.japi.rdd.CassandraTableScanJavaRDD;
+//import com.datastax.spark.connector.japi.CassandraRow;
+//import com.datastax.spark.connector.japi.rdd.CassandraTableScanJavaRDD;
 import com.sagittarius.bean.common.HostMetricPair;
 import com.sagittarius.bean.common.TimePartition;
 import com.sagittarius.bean.common.TypePartitionPair;
@@ -25,27 +25,28 @@ import com.sagittarius.read.internals.QueryStatement;
 import com.sagittarius.util.TimeUtil;
 import com.sagittarius.write.SagittariusWriter;
 import com.sagittarius.write.Writer;
-import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.JavaSparkContext;
-import scala.Tuple2;
-
-import javax.validation.constraints.NotNull;
-import java.awt.*;
+//import org.apache.spark.api.java.JavaRDD;
+//import org.apache.spark.api.java.JavaSparkContext;
+//import scala.Tuple2;
+//
+//import javax.validation.constraints.NotNull;
+//import java.awt.*;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+//import java.time.ZoneOffset;
 import java.util.*;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.datastax.spark.connector.japi.CassandraJavaUtil.javaFunctions;
-import static java.time.temporal.ChronoField.ALIGNED_WEEK_OF_YEAR;
+//import static com.datastax.spark.connector.japi.CassandraJavaUtil.javaFunctions;
+//import static java.time.temporal.ChronoField.ALIGNED_WEEK_OF_YEAR;
 
 public class SagittariusReader implements Reader {
     private Session session;
     private MappingManager mappingManager;
-    private JavaSparkContext sparkContext;
+//    private JavaSparkContext sparkContext;
     private Cache<HostMetricPair, TypePartitionPair> cache;
 //    private PreparedStatement aggIntStatement;
 //    private PreparedStatement aggLongStatement;
@@ -55,10 +56,11 @@ public class SagittariusReader implements Reader {
 //    private PreparedStatement aggBooleanStatement;
 //    private PreparedStatement aggGeoStatement;
 
-    public SagittariusReader(Session session, MappingManager mappingManager, JavaSparkContext sparkContext, Cache<HostMetricPair, TypePartitionPair> cache) {
+//    public SagittariusReader(Session session, MappingManager mappingManager, JavaSparkContext sparkContext, Cache<HostMetricPair, TypePartitionPair> cache) {
+    public SagittariusReader(Session session, MappingManager mappingManager, Cache<HostMetricPair, TypePartitionPair> cache) {
         this.session = session;
         this.mappingManager = mappingManager;
-        this.sparkContext = sparkContext;
+//        this.sparkContext = sparkContext;
         this.cache = cache;
 //        aggIntStatement = session.prepare("select count(*), max(*), min(*), sum(*) from data_int where host = :h and metric = :m and time_slice = :t");
 //        aggLongStatement = session.prepare("select count(*), max(*), min(*), sum(*) from data_long where host = :h and metric = :m and time_slice = :t");
@@ -1027,21 +1029,9 @@ public class SagittariusReader implements Reader {
                 }
             }
             LocalDateTime last = totalDates.get(totalDates.size() - 1);
-            boolean ifRepeat = true;
-            switch (timePartition) {
-                case DAY:
-                    ifRepeat = last.plusDays(1).isAfter(end);
-                    break;
-                case WEEK:
-                    ifRepeat = last.plusWeeks(1).isAfter(end);
-                    break;
-                case MONTH:
-                    ifRepeat = last.plusMonths(1).isAfter(end);
-                    break;
-                case YEAR:
-                    ifRepeat = last.plusYears(1).isAfter(end);
-                    break;
-            }
+            long lastMS = last.toEpochSecond(TimeUtil.zoneOffset)*1000;
+            String lastTimeSlice = TimeUtil.generateTimeSlice(lastMS, timePartition);
+            boolean ifRepeat = lastTimeSlice.equals(endTimeSlice) || lastTimeSlice.equals(startTimeSlice);
             if (!ifRepeat) {
                 if(desc){
                     String query = String.format(QueryStatement.WHOLE_PARTITION_QUERY_STATEMENT_DESC, table, hostsString, metricsString, TimeUtil.generateTimeSlice(last.toEpochSecond(TimeUtil.zoneOffset) * 1000, timePartition));
@@ -1467,25 +1457,9 @@ public class SagittariusReader implements Reader {
                 }
             }
             LocalDateTime last = totalDates.get(totalDates.size() - 1);
-            boolean ifRepeat = true;
-            switch (timePartition) {
-                case DAY:
-                    if (last.getDayOfYear() != end.getDayOfYear())
-                        ifRepeat = false;
-                    break;
-                case WEEK:
-                    if (last.getDayOfWeek().compareTo(end.getDayOfWeek()) <= 0)
-                        ifRepeat = false;
-                    break;
-                case MONTH:
-                    if (last.getMonthValue() != end.getMonthValue())
-                        ifRepeat = false;
-                    break;
-                case YEAR:
-                    if (last.getYear() != end.getYear())
-                        ifRepeat = false;
-                    break;
-            }
+            long lastMS = last.toEpochSecond(TimeUtil.zoneOffset)*1000;
+            String lastTimeSlice = TimeUtil.generateTimeSlice(lastMS, timePartition);
+            boolean ifRepeat = lastTimeSlice.equals(endTimeSlice) || lastTimeSlice.equals(startTimeSlice);
             if (!ifRepeat) {
                 if(desc){
                     String predicate = String.format(QueryStatement.WHOLE_PARTITION_WHERE_STATEMENT_DESC, hostsString, metricsString, TimeUtil.generateTimeSlice(last.toEpochSecond(TimeUtil.zoneOffset) * 1000, timePartition), filter);
@@ -1511,7 +1485,7 @@ public class SagittariusReader implements Reader {
     }
 
     @Override
-    public Map<String, Map<String, List<IntPoint>>> getIntRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, SparkException {
+    public Map<String, Map<String, List<IntPoint>>> getIntRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         if (endTime < startTime)
             return null;
 
@@ -1562,7 +1536,7 @@ public class SagittariusReader implements Reader {
     }
 
     @Override
-    public Map<String, Map<String, List<LongPoint>>> getLongRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, SparkException {
+    public Map<String, Map<String, List<LongPoint>>> getLongRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         if (endTime < startTime)
             return null;
 
@@ -1613,7 +1587,7 @@ public class SagittariusReader implements Reader {
     }
 
     @Override
-    public Map<String, Map<String, List<FloatPoint>>> getFloatRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, SparkException {
+    public Map<String, Map<String, List<FloatPoint>>> getFloatRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         if (endTime < startTime)
             return null;
 
@@ -1664,7 +1638,7 @@ public class SagittariusReader implements Reader {
     }
 
     @Override
-    public Map<String, Map<String, List<DoublePoint>>> getDoubleRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, SparkException {
+    public Map<String, Map<String, List<DoublePoint>>> getDoubleRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         if (endTime < startTime)
             return null;
 
@@ -1715,7 +1689,7 @@ public class SagittariusReader implements Reader {
     }
 
     @Override
-    public Map<String, Map<String, List<BooleanPoint>>> getBooleanRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, SparkException {
+    public Map<String, Map<String, List<BooleanPoint>>> getBooleanRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         if (endTime < startTime)
             return null;
 
@@ -1766,7 +1740,7 @@ public class SagittariusReader implements Reader {
     }
 
     @Override
-    public Map<String, Map<String, List<StringPoint>>> getStringRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, SparkException {
+    public Map<String, Map<String, List<StringPoint>>> getStringRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         if (endTime < startTime)
             return null;
 
@@ -1817,7 +1791,7 @@ public class SagittariusReader implements Reader {
     }
 
     @Override
-    public Map<String, Map<String, List<GeoPoint>>> getGeoRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, SparkException {
+    public Map<String, Map<String, List<GeoPoint>>> getGeoRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         if (endTime < startTime)
             return null;
 
@@ -1910,7 +1884,7 @@ public class SagittariusReader implements Reader {
     }
 
     @Override
-    public Map<String, Map<String, Double>> getIntRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, SparkException {
+    public Map<String, Map<String, Double>> getIntRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         if (endTime < startTime)
             return null;
 
@@ -2030,7 +2004,7 @@ public class SagittariusReader implements Reader {
     }
 
     @Override
-    public Map<String, Map<String, Double>> getLongRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, SparkException {
+    public Map<String, Map<String, Double>> getLongRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         if (endTime < startTime)
             return null;
 
@@ -2150,7 +2124,7 @@ public class SagittariusReader implements Reader {
     }
 
     @Override
-    public Map<String, Map<String, Double>> getFloatRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, SparkException {
+    public Map<String, Map<String, Double>> getFloatRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         if (endTime < startTime)
             return null;
 
@@ -2271,7 +2245,7 @@ public class SagittariusReader implements Reader {
     }
 
     @Override
-    public Map<String, Map<String, Double>> getDoubleRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, SparkException {
+    public Map<String, Map<String, Double>> getDoubleRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         if (endTime < startTime)
             return null;
 
@@ -2391,7 +2365,7 @@ public class SagittariusReader implements Reader {
     }
 
     @Override
-    public Map<String, Map<String, Double>> getBooleanRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, SparkException {
+    public Map<String, Map<String, Double>> getBooleanRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         if (endTime < startTime)
             return null;
 
@@ -2440,7 +2414,7 @@ public class SagittariusReader implements Reader {
     }
 
     @Override
-    public Map<String, Map<String, Double>> getStringRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, SparkException {
+    public Map<String, Map<String, Double>> getStringRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         if (endTime < startTime)
             return null;
 
@@ -2489,7 +2463,7 @@ public class SagittariusReader implements Reader {
     }
 
     @Override
-    public Map<String, Map<String, Double>> getGeoRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, SparkException {
+    public Map<String, Map<String, Double>> getGeoRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         if (endTime < startTime)
             return null;
 
@@ -2537,635 +2511,635 @@ public class SagittariusReader implements Reader {
         return result.size() != 0 ? result : null;
     }
 
-    @Override
-    public void exportIntCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, SparkException {
-        if (endTime < startTime) return;
-
-        //generate time ranges
-        List<Long> timePoints = new ArrayList<>();
-        timePoints.add(startTime);
-        long splitMillis = splitHours * 60 * 60 * 1000;
-        while (startTime + splitMillis < endTime) {
-            startTime = startTime + splitMillis;
-            timePoints.add(startTime);
-        }
-        timePoints.add(endTime);
-
-        String lineSeparator = System.getProperty("line.separator");
-        FileWriter fw = new FileWriter(filePath, true);
-        //construct file header and write to file
-        StringBuilder head = new StringBuilder();
-        head.append("ID号,").append("生成时间,").append("接收时间,");
-        for (String metric : metrics) {
-            head.append(metric).append(",");
-        }
-        head.delete(head.length() - 1, head.length());
-        head.append(lineSeparator);
-        fw.write(head.toString());
-        fw.flush();
-
-        String queryFilter = (filter == null) ? "" : " and " + filter;
-        //construct data output and write to file
-        for (String host : hosts) {
-            List<String> single = new ArrayList<>();
-            single.add(host);
-            for (int j = 0; j < timePoints.size() - 1; ++j) {
-                List<Map.Entry<Long, List<CassandraRow>>> entryList = new ArrayList<>();
-                try {
-                    List<String> predicates = getRangeQueryPredicates(single, metrics, timePoints.get(j), timePoints.get(j + 1), "",  false);
-                    if (predicates.size() == 0) {
-                        continue;
-                    }
-                    //query cassandra
-                    JavaRDD<CassandraRow> resultRDD = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_int").select("host", "metric", "primary_time", "secondary_time", "value").where(predicates.get(0) + queryFilter);
-                    for (int i = 1; i < predicates.size(); ++i) {
-                        CassandraTableScanJavaRDD<CassandraRow> rdd = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_int").select("host", "metric", "primary_time", "secondary_time", "value").where(predicates.get(i) + queryFilter);
-                        resultRDD = resultRDD.union(rdd);
-                    }
-
-                    entryList = resultRDD.collect()
-                            .stream()
-                            .collect(Collectors.groupingBy(e -> e.getLong("primary_time")))
-                            .entrySet()
-                            .stream()
-                            .sorted((e1, e2) -> e1.getKey().compareTo(e2.getKey()))
-                            .collect(Collectors.toList());
-                } catch (NoHostAvailableException e) {
-                    throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
-                } catch (OperationTimedOutException | ReadTimeoutException e) {
-                    throw new TimeoutException(e.getMessage(), e.getCause());
-                } catch (QueryExecutionException e) {
-                    throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
-                } catch (Exception e) {
-                    throw new SparkException(e.getMessage(), e.getCause());
-                }
-
-                StringBuilder sb = new StringBuilder();
-                for (Map.Entry<Long, List<CassandraRow>> entry : entryList) {
-                    List<CassandraRow> rows = entry.getValue();
-                    CassandraRow first = rows.get(0);
-                    String primaryTime = TimeUtil.date2String(first.getLong("primary_time"), TimeUtil.dateFormat1);
-                    String secondaryTime = first.getLong("secondary_time") != null ? TimeUtil.date2String(first.getLong("secondary_time"), TimeUtil.dateFormat1) : "null";
-                    sb.append(first.getString("host")).append(",").append(primaryTime).append(",").append(secondaryTime).append(",");
-
-                    Map<String, String> metricMap = new HashMap<>();
-                    for (CassandraRow row : rows) {
-                        metricMap.put(row.getString("metric"), row.getString("value"));
-                    }
-                    for (String metric : metrics) {
-                        sb.append(metricMap.getOrDefault(metric, "")).append(",");
-                    }
-                    sb.delete(sb.length() - 1, sb.length());
-                    sb.append(lineSeparator);
-                }
-                //write to file
-                fw.write(sb.toString());
-                fw.flush();
-            }
-        }
-
-        fw.close();
-    }
-
-    @Override
-    public void exportLongCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, SparkException {
-        if (endTime < startTime) return;
-
-        //generate time ranges
-        List<Long> timePoints = new ArrayList<>();
-        timePoints.add(startTime);
-        long splitMillis = splitHours * 60 * 60 * 1000;
-        while (startTime + splitMillis < endTime) {
-            startTime = startTime + splitMillis;
-            timePoints.add(startTime);
-        }
-        timePoints.add(endTime);
-
-        String lineSeparator = System.getProperty("line.separator");
-        FileWriter fw = new FileWriter(filePath, true);
-        //construct file header and write to file
-        StringBuilder head = new StringBuilder();
-        head.append("ID号,").append("生成时间,").append("接收时间,");
-        for (String metric : metrics) {
-            head.append(metric).append(",");
-        }
-        head.delete(head.length() - 1, head.length());
-        head.append(lineSeparator);
-        fw.write(head.toString());
-        fw.flush();
-
-        String queryFilter = (filter == null) ? "" : " and " + filter;
-        //construct data output and write to file
-        for (String host : hosts) {
-            List<String> single = new ArrayList<>();
-            single.add(host);
-            for (int j = 0; j < timePoints.size() - 1; ++j) {
-                List<Map.Entry<Long, List<CassandraRow>>> entryList = new ArrayList<>();
-                try {
-                    List<String> predicates = getRangeQueryPredicates(single, metrics, timePoints.get(j), timePoints.get(j + 1), "", false);
-                    if (predicates.size() == 0) {
-                        continue;
-                    }
-                    //query cassandra
-                    JavaRDD<CassandraRow> resultRDD = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_long").select("host", "metric", "primary_time", "secondary_time", "value").where(predicates.get(0) + queryFilter);
-                    for (int i = 1; i < predicates.size(); ++i) {
-                        CassandraTableScanJavaRDD<CassandraRow> rdd = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_long").select("host", "metric", "primary_time", "secondary_time", "value").where(predicates.get(i) + queryFilter);
-                        resultRDD = resultRDD.union(rdd);
-                    }
-
-                    entryList = resultRDD.collect()
-                            .stream()
-                            .collect(Collectors.groupingBy(e -> e.getLong("primary_time")))
-                            .entrySet()
-                            .stream()
-                            .sorted((e1, e2) -> e1.getKey().compareTo(e2.getKey()))
-                            .collect(Collectors.toList());
-                } catch (NoHostAvailableException e) {
-                    throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
-                } catch (OperationTimedOutException | ReadTimeoutException e) {
-                    throw new TimeoutException(e.getMessage(), e.getCause());
-                } catch (QueryExecutionException e) {
-                    throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
-                } catch (Exception e) {
-                    throw new SparkException(e.getMessage(), e.getCause());
-                }
-
-                StringBuilder sb = new StringBuilder();
-                for (Map.Entry<Long, List<CassandraRow>> entry : entryList) {
-                    List<CassandraRow> rows = entry.getValue();
-                    CassandraRow first = rows.get(0);
-                    String primaryTime = TimeUtil.date2String(first.getLong("primary_time"), TimeUtil.dateFormat1);
-                    String secondaryTime = first.getLong("secondary_time") != null ? TimeUtil.date2String(first.getLong("secondary_time"), TimeUtil.dateFormat1) : "null";
-                    sb.append(first.getString("host")).append(",").append(primaryTime).append(",").append(secondaryTime).append(",");
-
-                    Map<String, String> metricMap = new HashMap<>();
-                    for (CassandraRow row : rows) {
-                        metricMap.put(row.getString("metric"), row.getString("value"));
-                    }
-                    for (String metric : metrics) {
-                        sb.append(metricMap.getOrDefault(metric, "")).append(",");
-                    }
-                    sb.delete(sb.length() - 1, sb.length());
-                    sb.append(lineSeparator);
-                }
-                //write to file
-                fw.write(sb.toString());
-                fw.flush();
-            }
-        }
-
-        fw.close();
-    }
-
-    @Override
-    public void exportFloatCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, SparkException {
-        if (endTime < startTime) return;
-
-        //generate time ranges
-        List<Long> timePoints = new ArrayList<>();
-        timePoints.add(startTime);
-        long splitMillis = splitHours * 60 * 60 * 1000;
-        while (startTime + splitMillis < endTime) {
-            startTime = startTime + splitMillis;
-            timePoints.add(startTime);
-        }
-        timePoints.add(endTime);
-
-        String lineSeparator = System.getProperty("line.separator");
-        FileWriter fw = new FileWriter(filePath, true);
-        //construct file header and write to file
-        StringBuilder head = new StringBuilder();
-        head.append("ID号,").append("生成时间,").append("接收时间,");
-        for (String metric : metrics) {
-            head.append(metric).append(",");
-        }
-        head.delete(head.length() - 1, head.length());
-        head.append(lineSeparator);
-        fw.write(head.toString());
-        fw.flush();
-
-        String queryFilter = (filter == null) ? "" : " and " + filter;
-        //construct data output and write to file
-        for (String host : hosts) {
-            List<String> single = new ArrayList<>();
-            single.add(host);
-            for (int j = 0; j < timePoints.size() - 1; ++j) {
-                List<Map.Entry<Long, List<CassandraRow>>> entryList = new ArrayList<>();
-                try {
-                    List<String> predicates = getRangeQueryPredicates(single, metrics, timePoints.get(j), timePoints.get(j + 1), "", false);
-                    if (predicates.size() == 0) {
-                        continue;
-                    }
-                    //query cassandra
-                    JavaRDD<CassandraRow> resultRDD = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_float").select("host", "metric", "primary_time", "secondary_time", "value").where(predicates.get(0) + queryFilter);
-                    for (int i = 1; i < predicates.size(); ++i) {
-                        CassandraTableScanJavaRDD<CassandraRow> rdd = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_int").select("host", "metric", "primary_time", "secondary_time", "value").where(predicates.get(i) + queryFilter);
-                        resultRDD = resultRDD.union(rdd);
-                    }
-
-                    entryList = resultRDD.collect()
-                            .stream()
-                            .collect(Collectors.groupingBy(e -> e.getLong("primary_time")))
-                            .entrySet()
-                            .stream()
-                            .sorted((e1, e2) -> e1.getKey().compareTo(e2.getKey()))
-                            .collect(Collectors.toList());
-                } catch (NoHostAvailableException e) {
-                    throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
-                } catch (OperationTimedOutException | ReadTimeoutException e) {
-                    throw new TimeoutException(e.getMessage(), e.getCause());
-                } catch (QueryExecutionException e) {
-                    throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
-                } catch (Exception e) {
-                    throw new SparkException(e.getMessage(), e.getCause());
-                }
-
-                StringBuilder sb = new StringBuilder();
-                for (Map.Entry<Long, List<CassandraRow>> entry : entryList) {
-                    List<CassandraRow> rows = entry.getValue();
-                    CassandraRow first = rows.get(0);
-                    String primaryTime = TimeUtil.date2String(first.getLong("primary_time"), TimeUtil.dateFormat1);
-                    String secondaryTime = first.getLong("secondary_time") != null ? TimeUtil.date2String(first.getLong("secondary_time"), TimeUtil.dateFormat1) : "null";
-                    sb.append(first.getString("host")).append(",").append(primaryTime).append(",").append(secondaryTime).append(",");
-
-                    Map<String, String> metricMap = new HashMap<>();
-                    for (CassandraRow row : rows) {
-                        metricMap.put(row.getString("metric"), row.getString("value"));
-                    }
-                    for (String metric : metrics) {
-                        sb.append(metricMap.getOrDefault(metric, "")).append(",");
-                    }
-                    sb.delete(sb.length() - 1, sb.length());
-                    sb.append(lineSeparator);
-                }
-                //write to file
-                fw.write(sb.toString());
-                fw.flush();
-            }
-        }
-
-        fw.close();
-    }
-
-    @Override
-    public void exportDoubleCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, SparkException {
-        if (endTime < startTime) return;
-
-        //generate time ranges
-        List<Long> timePoints = new ArrayList<>();
-        timePoints.add(startTime);
-        long splitMillis = splitHours * 60 * 60 * 1000;
-        while (startTime + splitMillis < endTime) {
-            startTime = startTime + splitMillis;
-            timePoints.add(startTime);
-        }
-        timePoints.add(endTime);
-
-        String lineSeparator = System.getProperty("line.separator");
-        FileWriter fw = new FileWriter(filePath, true);
-        //construct file header and write to file
-        StringBuilder head = new StringBuilder();
-        head.append("ID号,").append("生成时间,").append("接收时间,");
-        for (String metric : metrics) {
-            head.append(metric).append(",");
-        }
-        head.delete(head.length() - 1, head.length());
-        head.append(lineSeparator);
-        fw.write(head.toString());
-        fw.flush();
-
-        String queryFilter = (filter == null) ? "" : " and " + filter;
-        //construct data output and write to file
-        for (String host : hosts) {
-            List<String> single = new ArrayList<>();
-            single.add(host);
-            for (int j = 0; j < timePoints.size() - 1; ++j) {
-                List<Map.Entry<Long, List<CassandraRow>>> entryList = new ArrayList<>();
-                try {
-                    List<String> predicates = getRangeQueryPredicates(single, metrics, timePoints.get(j), timePoints.get(j + 1), "", false);
-                    if (predicates.size() == 0) {
-                        continue;
-                    }
-                    //query cassandra
-                    JavaRDD<CassandraRow> resultRDD = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_double").select("host", "metric", "primary_time", "secondary_time", "value").where(predicates.get(0) + queryFilter);
-                    for (int i = 1; i < predicates.size(); ++i) {
-                        CassandraTableScanJavaRDD<CassandraRow> rdd = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_double").select("host", "metric", "primary_time", "secondary_time", "value").where(predicates.get(i) + queryFilter);
-                        resultRDD = resultRDD.union(rdd);
-                    }
-
-                    entryList = resultRDD.collect()
-                            .stream()
-                            .collect(Collectors.groupingBy(e -> e.getLong("primary_time")))
-                            .entrySet()
-                            .stream()
-                            .sorted((e1, e2) -> e1.getKey().compareTo(e2.getKey()))
-                            .collect(Collectors.toList());
-                } catch (NoHostAvailableException e) {
-                    throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
-                } catch (OperationTimedOutException | ReadTimeoutException e) {
-                    throw new TimeoutException(e.getMessage(), e.getCause());
-                } catch (QueryExecutionException e) {
-                    throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
-                } catch (Exception e) {
-                    throw new SparkException(e.getMessage(), e.getCause());
-                }
-
-                StringBuilder sb = new StringBuilder();
-                for (Map.Entry<Long, List<CassandraRow>> entry : entryList) {
-                    List<CassandraRow> rows = entry.getValue();
-                    CassandraRow first = rows.get(0);
-                    String primaryTime = TimeUtil.date2String(first.getLong("primary_time"), TimeUtil.dateFormat1);
-                    String secondaryTime = first.getLong("secondary_time") != null ? TimeUtil.date2String(first.getLong("secondary_time"), TimeUtil.dateFormat1) : "null";
-                    sb.append(first.getString("host")).append(",").append(primaryTime).append(",").append(secondaryTime).append(",");
-
-                    Map<String, String> metricMap = new HashMap<>();
-                    for (CassandraRow row : rows) {
-                        metricMap.put(row.getString("metric"), row.getString("value"));
-                    }
-                    for (String metric : metrics) {
-                        sb.append(metricMap.getOrDefault(metric, "")).append(",");
-                    }
-                    sb.delete(sb.length() - 1, sb.length());
-                    sb.append(lineSeparator);
-                }
-                //write to file
-                fw.write(sb.toString());
-                fw.flush();
-            }
-        }
-
-        fw.close();
-    }
-
-    @Override
-    public void exportBooleanCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, SparkException {
-        if (endTime < startTime) return;
-
-        //generate time ranges
-        List<Long> timePoints = new ArrayList<>();
-        timePoints.add(startTime);
-        long splitMillis = splitHours * 60 * 60 * 1000;
-        while (startTime + splitMillis < endTime) {
-            startTime = startTime + splitMillis;
-            timePoints.add(startTime);
-        }
-        timePoints.add(endTime);
-
-        String lineSeparator = System.getProperty("line.separator");
-        FileWriter fw = new FileWriter(filePath, true);
-        //construct file header and write to file
-        StringBuilder head = new StringBuilder();
-        head.append("ID号,").append("生成时间,").append("接收时间,");
-        for (String metric : metrics) {
-            head.append(metric).append(",");
-        }
-        head.delete(head.length() - 1, head.length());
-        head.append(lineSeparator);
-        fw.write(head.toString());
-        fw.flush();
-
-        String queryFilter = (filter == null) ? "" : " and " + filter;
-        //construct data output and write to file
-        for (String host : hosts) {
-            List<String> single = new ArrayList<>();
-            single.add(host);
-            for (int j = 0; j < timePoints.size() - 1; ++j) {
-                List<Map.Entry<Long, List<CassandraRow>>> entryList = new ArrayList<>();
-                try {
-                    List<String> predicates = getRangeQueryPredicates(single, metrics, timePoints.get(j), timePoints.get(j + 1), "", false);
-                    if (predicates.size() == 0) {
-                        continue;
-                    }
-                    //query cassandra
-                    JavaRDD<CassandraRow> resultRDD = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_boolean").select("host", "metric", "primary_time", "secondary_time", "value").where(predicates.get(0) + queryFilter);
-                    for (int i = 1; i < predicates.size(); ++i) {
-                        CassandraTableScanJavaRDD<CassandraRow> rdd = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_boolean").select("host", "metric", "primary_time", "secondary_time", "value").where(predicates.get(i) + queryFilter);
-                        resultRDD = resultRDD.union(rdd);
-                    }
-
-                    entryList = resultRDD.collect()
-                            .stream()
-                            .collect(Collectors.groupingBy(e -> e.getLong("primary_time")))
-                            .entrySet()
-                            .stream()
-                            .sorted((e1, e2) -> e1.getKey().compareTo(e2.getKey()))
-                            .collect(Collectors.toList());
-                } catch (NoHostAvailableException e) {
-                    throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
-                } catch (OperationTimedOutException | ReadTimeoutException e) {
-                    throw new TimeoutException(e.getMessage(), e.getCause());
-                } catch (QueryExecutionException e) {
-                    throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
-                } catch (Exception e) {
-                    throw new SparkException(e.getMessage(), e.getCause());
-                }
-
-                StringBuilder sb = new StringBuilder();
-                for (Map.Entry<Long, List<CassandraRow>> entry : entryList) {
-                    List<CassandraRow> rows = entry.getValue();
-                    CassandraRow first = rows.get(0);
-                    String primaryTime = TimeUtil.date2String(first.getLong("primary_time"), TimeUtil.dateFormat1);
-                    String secondaryTime = first.getLong("secondary_time") != null ? TimeUtil.date2String(first.getLong("secondary_time"), TimeUtil.dateFormat1) : "null";
-                    sb.append(first.getString("host")).append(",").append(primaryTime).append(",").append(secondaryTime).append(",");
-
-                    Map<String, String> metricMap = new HashMap<>();
-                    for (CassandraRow row : rows) {
-                        metricMap.put(row.getString("metric"), row.getString("value"));
-                    }
-                    for (String metric : metrics) {
-                        sb.append(metricMap.getOrDefault(metric, "")).append(",");
-                    }
-                    sb.delete(sb.length() - 1, sb.length());
-                    sb.append(lineSeparator);
-                }
-                //write to file
-                fw.write(sb.toString());
-                fw.flush();
-            }
-        }
-
-        fw.close();
-    }
-
-    @Override
-    public void exportStringCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, SparkException {
-        if (endTime < startTime) return;
-
-        //generate time ranges
-        List<Long> timePoints = new ArrayList<>();
-        timePoints.add(startTime);
-        long splitMillis = splitHours * 60 * 60 * 1000;
-        while (startTime + splitMillis < endTime) {
-            startTime = startTime + splitMillis;
-            timePoints.add(startTime);
-        }
-        timePoints.add(endTime);
-
-        String lineSeparator = System.getProperty("line.separator");
-        FileWriter fw = new FileWriter(filePath, true);
-        //construct file header and write to file
-        StringBuilder head = new StringBuilder();
-        head.append("ID号,").append("生成时间,").append("接收时间,");
-        for (String metric : metrics) {
-            head.append(metric).append(",");
-        }
-        head.delete(head.length() - 1, head.length());
-        head.append(lineSeparator);
-        fw.write(head.toString());
-        fw.flush();
-
-        String regex = filter.split(" ")[2];
-        //construct data output and write to file
-        for (String host : hosts) {
-            List<String> single = new ArrayList<>();
-            single.add(host);
-            for (int j = 0; j < timePoints.size() - 1; ++j) {
-                List<Map.Entry<Long, List<CassandraRow>>> entryList = new ArrayList<>();
-                try {
-                    List<String> predicates = getRangeQueryPredicates(single, metrics, timePoints.get(j), timePoints.get(j + 1), "", false);
-                    if (predicates.size() == 0) {
-                        continue;
-                    }
-                    //query cassandra
-                    JavaRDD<CassandraRow> resultRDD = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_text").select("host", "metric", "primary_time", "secondary_time", "value").where(predicates.get(0)).filter(x -> x.getString("value").matches(regex));
-                    for (int i = 1; i < predicates.size(); ++i) {
-                        JavaRDD<CassandraRow> rdd = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_text").select("host", "metric", "primary_time", "secondary_time", "value").where(predicates.get(i)).filter(x -> x.getString("value").matches(regex));
-                        resultRDD = resultRDD.union(rdd);
-                    }
-
-                    entryList = resultRDD.collect()
-                            .stream()
-                            .collect(Collectors.groupingBy(e -> e.getLong("primary_time")))
-                            .entrySet()
-                            .stream()
-                            .sorted((e1, e2) -> e1.getKey().compareTo(e2.getKey()))
-                            .collect(Collectors.toList());
-                } catch (NoHostAvailableException e) {
-                    throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
-                } catch (OperationTimedOutException | ReadTimeoutException e) {
-                    throw new TimeoutException(e.getMessage(), e.getCause());
-                } catch (QueryExecutionException e) {
-                    throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
-                } catch (Exception e) {
-                    throw new SparkException(e.getMessage(), e.getCause());
-                }
-
-                StringBuilder sb = new StringBuilder();
-                for (Map.Entry<Long, List<CassandraRow>> entry : entryList) {
-                    List<CassandraRow> rows = entry.getValue();
-                    CassandraRow first = rows.get(0);
-                    String primaryTime = TimeUtil.date2String(first.getLong("primary_time"), TimeUtil.dateFormat1);
-                    String secondaryTime = first.getLong("secondary_time") != null ? TimeUtil.date2String(first.getLong("secondary_time"), TimeUtil.dateFormat1) : "null";
-                    sb.append(first.getString("host")).append(",").append(primaryTime).append(",").append(secondaryTime).append(",");
-
-                    Map<String, String> metricMap = new HashMap<>();
-                    for (CassandraRow row : rows) {
-                        metricMap.put(row.getString("metric"), row.getString("value"));
-                    }
-                    for (String metric : metrics) {
-                        sb.append(metricMap.getOrDefault(metric, "")).append(",");
-                    }
-                    sb.delete(sb.length() - 1, sb.length());
-                    sb.append(lineSeparator);
-                }
-                //write to file
-                fw.write(sb.toString());
-                fw.flush();
-            }
-        }
-
-        fw.close();
-    }
-
-    @Override
-    public void exportGeoCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, SparkException {
-        if (endTime < startTime) return;
-
-        //generate time ranges
-        List<Long> timePoints = new ArrayList<>();
-        timePoints.add(startTime);
-        long splitMillis = splitHours * 60 * 60 * 1000;
-        while (startTime + splitMillis < endTime) {
-            startTime = startTime + splitMillis;
-            timePoints.add(startTime);
-        }
-        timePoints.add(endTime);
-
-        String lineSeparator = System.getProperty("line.separator");
-        FileWriter fw = new FileWriter(filePath, true);
-        //construct file header and write to file
-        StringBuilder head = new StringBuilder();
-        head.append("ID号,").append("生成时间,").append("接收时间,");
-        for (String metric : metrics) {
-            head.append(metric).append(",");
-        }
-        head.delete(head.length() - 1, head.length());
-        head.append(lineSeparator);
-        fw.write(head.toString());
-        fw.flush();
-
-        String queryFilter = (filter == null) ? "" : " and " + filter;
-        //construct data output and write to file
-        for (String host : hosts) {
-            List<String> single = new ArrayList<>();
-            single.add(host);
-            for (int j = 0; j < timePoints.size() - 1; ++j) {
-                List<Map.Entry<Long, List<CassandraRow>>> entryList = new ArrayList<>();
-                try {
-                    List<String> predicates = getRangeQueryPredicates(single, metrics, timePoints.get(j), timePoints.get(j + 1), "", false);
-                    if (predicates.size() == 0) {
-                        continue;
-                    }
-                    //query cassandra
-                    JavaRDD<CassandraRow> resultRDD = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_geo").select("host", "metric", "primary_time", "secondary_time", "latitude", "longitude").where(predicates.get(0) + queryFilter);
-                    for (int i = 1; i < predicates.size(); ++i) {
-                        CassandraTableScanJavaRDD<CassandraRow> rdd = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_geo").select("host", "metric", "primary_time", "secondary_time", "latitude", "longitude").where(predicates.get(i) + queryFilter);
-                        resultRDD = resultRDD.union(rdd);
-                    }
-
-                    entryList = resultRDD.collect()
-                            .stream()
-                            .collect(Collectors.groupingBy(e -> e.getLong("primary_time")))
-                            .entrySet()
-                            .stream()
-                            .sorted((e1, e2) -> e1.getKey().compareTo(e2.getKey()))
-                            .collect(Collectors.toList());
-                } catch (NoHostAvailableException e) {
-                    throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
-                } catch (OperationTimedOutException | ReadTimeoutException e) {
-                    throw new TimeoutException(e.getMessage(), e.getCause());
-                } catch (QueryExecutionException e) {
-                    throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
-                } catch (Exception e) {
-                    throw new SparkException(e.getMessage(), e.getCause());
-                }
-
-                StringBuilder sb = new StringBuilder();
-                for (Map.Entry<Long, List<CassandraRow>> entry : entryList) {
-                    List<CassandraRow> rows = entry.getValue();
-                    CassandraRow first = rows.get(0);
-                    String primaryTime = TimeUtil.date2String(first.getLong("primary_time"), TimeUtil.dateFormat1);
-                    String secondaryTime = first.getLong("secondary_time") != null ? TimeUtil.date2String(first.getLong("secondary_time"), TimeUtil.dateFormat1) : "null";
-                    sb.append(first.getString("host")).append(",").append(primaryTime).append(",").append(secondaryTime).append(",");
-
-                    Map<String, String> metricMap = new HashMap<>();
-                    for (CassandraRow row : rows) {
-                        metricMap.put(row.getString("metric"), row.getString("latitude") + "#" + row.getString("longitude"));
-                    }
-                    for (String metric : metrics) {
-                        sb.append(metricMap.getOrDefault(metric, "")).append(",");
-                    }
-                    sb.delete(sb.length() - 1, sb.length());
-                    sb.append(lineSeparator);
-                }
-                //write to file
-                fw.write(sb.toString());
-                fw.flush();
-            }
-        }
-
-        fw.close();
-    }
+//    @Override
+//    public void exportIntCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+//        if (endTime < startTime) return;
+//
+//        //generate time ranges
+//        List<Long> timePoints = new ArrayList<>();
+//        timePoints.add(startTime);
+//        long splitMillis = splitHours * 60 * 60 * 1000;
+//        while (startTime + splitMillis < endTime) {
+//            startTime = startTime + splitMillis;
+//            timePoints.add(startTime);
+//        }
+//        timePoints.add(endTime);
+//
+//        String lineSeparator = System.getProperty("line.separator");
+//        FileWriter fw = new FileWriter(filePath, true);
+//        //construct file header and write to file
+//        StringBuilder head = new StringBuilder();
+//        head.append("ID号,").append("生成时间,").append("接收时间,");
+//        for (String metric : metrics) {
+//            head.append(metric).append(",");
+//        }
+//        head.delete(head.length() - 1, head.length());
+//        head.append(lineSeparator);
+//        fw.write(head.toString());
+//        fw.flush();
+//
+//        String queryFilter = (filter == null) ? "" : " and " + filter;
+//        //construct data output and write to file
+//        for (String host : hosts) {
+//            List<String> single = new ArrayList<>();
+//            single.add(host);
+//            for (int j = 0; j < timePoints.size() - 1; ++j) {
+//                List<Map.Entry<Long, List<CassandraRow>>> entryList = new ArrayList<>();
+//                try {
+//                    List<String> predicates = getRangeQueryPredicates(single, metrics, timePoints.get(j), timePoints.get(j + 1), "",  false);
+//                    if (predicates.size() == 0) {
+//                        continue;
+//                    }
+//                    //query cassandra
+//                    JavaRDD<CassandraRow> resultRDD = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_int").select("host", "metric", "primary_time", "secondary_time", "value").where(predicates.get(0) + queryFilter);
+//                    for (int i = 1; i < predicates.size(); ++i) {
+//                        CassandraTableScanJavaRDD<CassandraRow> rdd = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_int").select("host", "metric", "primary_time", "secondary_time", "value").where(predicates.get(i) + queryFilter);
+//                        resultRDD = resultRDD.union(rdd);
+//                    }
+//
+//                    entryList = resultRDD.collect()
+//                            .stream()
+//                            .collect(Collectors.groupingBy(e -> e.getLong("primary_time")))
+//                            .entrySet()
+//                            .stream()
+//                            .sorted((e1, e2) -> e1.getKey().compareTo(e2.getKey()))
+//                            .collect(Collectors.toList());
+//                } catch (NoHostAvailableException e) {
+//                    throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
+//                } catch (OperationTimedOutException | ReadTimeoutException e) {
+//                    throw new TimeoutException(e.getMessage(), e.getCause());
+//                } catch (QueryExecutionException e) {
+//                    throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+//                } catch (Exception e) {
+//                    throw new SparkException(e.getMessage(), e.getCause());
+//                }
+//
+//                StringBuilder sb = new StringBuilder();
+//                for (Map.Entry<Long, List<CassandraRow>> entry : entryList) {
+//                    List<CassandraRow> rows = entry.getValue();
+//                    CassandraRow first = rows.get(0);
+//                    String primaryTime = TimeUtil.date2String(first.getLong("primary_time"), TimeUtil.dateFormat1);
+//                    String secondaryTime = first.getLong("secondary_time") != null ? TimeUtil.date2String(first.getLong("secondary_time"), TimeUtil.dateFormat1) : "null";
+//                    sb.append(first.getString("host")).append(",").append(primaryTime).append(",").append(secondaryTime).append(",");
+//
+//                    Map<String, String> metricMap = new HashMap<>();
+//                    for (CassandraRow row : rows) {
+//                        metricMap.put(row.getString("metric"), row.getString("value"));
+//                    }
+//                    for (String metric : metrics) {
+//                        sb.append(metricMap.getOrDefault(metric, "")).append(",");
+//                    }
+//                    sb.delete(sb.length() - 1, sb.length());
+//                    sb.append(lineSeparator);
+//                }
+//                //write to file
+//                fw.write(sb.toString());
+//                fw.flush();
+//            }
+//        }
+//
+//        fw.close();
+//    }
+//
+//    @Override
+//    public void exportLongCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+//        if (endTime < startTime) return;
+//
+//        //generate time ranges
+//        List<Long> timePoints = new ArrayList<>();
+//        timePoints.add(startTime);
+//        long splitMillis = splitHours * 60 * 60 * 1000;
+//        while (startTime + splitMillis < endTime) {
+//            startTime = startTime + splitMillis;
+//            timePoints.add(startTime);
+//        }
+//        timePoints.add(endTime);
+//
+//        String lineSeparator = System.getProperty("line.separator");
+//        FileWriter fw = new FileWriter(filePath, true);
+//        //construct file header and write to file
+//        StringBuilder head = new StringBuilder();
+//        head.append("ID号,").append("生成时间,").append("接收时间,");
+//        for (String metric : metrics) {
+//            head.append(metric).append(",");
+//        }
+//        head.delete(head.length() - 1, head.length());
+//        head.append(lineSeparator);
+//        fw.write(head.toString());
+//        fw.flush();
+//
+//        String queryFilter = (filter == null) ? "" : " and " + filter;
+//        //construct data output and write to file
+//        for (String host : hosts) {
+//            List<String> single = new ArrayList<>();
+//            single.add(host);
+//            for (int j = 0; j < timePoints.size() - 1; ++j) {
+//                List<Map.Entry<Long, List<CassandraRow>>> entryList = new ArrayList<>();
+//                try {
+//                    List<String> predicates = getRangeQueryPredicates(single, metrics, timePoints.get(j), timePoints.get(j + 1), "", false);
+//                    if (predicates.size() == 0) {
+//                        continue;
+//                    }
+//                    //query cassandra
+//                    JavaRDD<CassandraRow> resultRDD = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_long").select("host", "metric", "primary_time", "secondary_time", "value").where(predicates.get(0) + queryFilter);
+//                    for (int i = 1; i < predicates.size(); ++i) {
+//                        CassandraTableScanJavaRDD<CassandraRow> rdd = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_long").select("host", "metric", "primary_time", "secondary_time", "value").where(predicates.get(i) + queryFilter);
+//                        resultRDD = resultRDD.union(rdd);
+//                    }
+//
+//                    entryList = resultRDD.collect()
+//                            .stream()
+//                            .collect(Collectors.groupingBy(e -> e.getLong("primary_time")))
+//                            .entrySet()
+//                            .stream()
+//                            .sorted((e1, e2) -> e1.getKey().compareTo(e2.getKey()))
+//                            .collect(Collectors.toList());
+//                } catch (NoHostAvailableException e) {
+//                    throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
+//                } catch (OperationTimedOutException | ReadTimeoutException e) {
+//                    throw new TimeoutException(e.getMessage(), e.getCause());
+//                } catch (QueryExecutionException e) {
+//                    throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+//                } catch (Exception e) {
+//                    throw new SparkException(e.getMessage(), e.getCause());
+//                }
+//
+//                StringBuilder sb = new StringBuilder();
+//                for (Map.Entry<Long, List<CassandraRow>> entry : entryList) {
+//                    List<CassandraRow> rows = entry.getValue();
+//                    CassandraRow first = rows.get(0);
+//                    String primaryTime = TimeUtil.date2String(first.getLong("primary_time"), TimeUtil.dateFormat1);
+//                    String secondaryTime = first.getLong("secondary_time") != null ? TimeUtil.date2String(first.getLong("secondary_time"), TimeUtil.dateFormat1) : "null";
+//                    sb.append(first.getString("host")).append(",").append(primaryTime).append(",").append(secondaryTime).append(",");
+//
+//                    Map<String, String> metricMap = new HashMap<>();
+//                    for (CassandraRow row : rows) {
+//                        metricMap.put(row.getString("metric"), row.getString("value"));
+//                    }
+//                    for (String metric : metrics) {
+//                        sb.append(metricMap.getOrDefault(metric, "")).append(",");
+//                    }
+//                    sb.delete(sb.length() - 1, sb.length());
+//                    sb.append(lineSeparator);
+//                }
+//                //write to file
+//                fw.write(sb.toString());
+//                fw.flush();
+//            }
+//        }
+//
+//        fw.close();
+//    }
+//
+//    @Override
+//    public void exportFloatCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+//        if (endTime < startTime) return;
+//
+//        //generate time ranges
+//        List<Long> timePoints = new ArrayList<>();
+//        timePoints.add(startTime);
+//        long splitMillis = splitHours * 60 * 60 * 1000;
+//        while (startTime + splitMillis < endTime) {
+//            startTime = startTime + splitMillis;
+//            timePoints.add(startTime);
+//        }
+//        timePoints.add(endTime);
+//
+//        String lineSeparator = System.getProperty("line.separator");
+//        FileWriter fw = new FileWriter(filePath, true);
+//        //construct file header and write to file
+//        StringBuilder head = new StringBuilder();
+//        head.append("ID号,").append("生成时间,").append("接收时间,");
+//        for (String metric : metrics) {
+//            head.append(metric).append(",");
+//        }
+//        head.delete(head.length() - 1, head.length());
+//        head.append(lineSeparator);
+//        fw.write(head.toString());
+//        fw.flush();
+//
+//        String queryFilter = (filter == null) ? "" : " and " + filter;
+//        //construct data output and write to file
+//        for (String host : hosts) {
+//            List<String> single = new ArrayList<>();
+//            single.add(host);
+//            for (int j = 0; j < timePoints.size() - 1; ++j) {
+//                List<Map.Entry<Long, List<CassandraRow>>> entryList = new ArrayList<>();
+//                try {
+//                    List<String> predicates = getRangeQueryPredicates(single, metrics, timePoints.get(j), timePoints.get(j + 1), "", false);
+//                    if (predicates.size() == 0) {
+//                        continue;
+//                    }
+//                    //query cassandra
+//                    JavaRDD<CassandraRow> resultRDD = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_float").select("host", "metric", "primary_time", "secondary_time", "value").where(predicates.get(0) + queryFilter);
+//                    for (int i = 1; i < predicates.size(); ++i) {
+//                        CassandraTableScanJavaRDD<CassandraRow> rdd = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_int").select("host", "metric", "primary_time", "secondary_time", "value").where(predicates.get(i) + queryFilter);
+//                        resultRDD = resultRDD.union(rdd);
+//                    }
+//
+//                    entryList = resultRDD.collect()
+//                            .stream()
+//                            .collect(Collectors.groupingBy(e -> e.getLong("primary_time")))
+//                            .entrySet()
+//                            .stream()
+//                            .sorted((e1, e2) -> e1.getKey().compareTo(e2.getKey()))
+//                            .collect(Collectors.toList());
+//                } catch (NoHostAvailableException e) {
+//                    throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
+//                } catch (OperationTimedOutException | ReadTimeoutException e) {
+//                    throw new TimeoutException(e.getMessage(), e.getCause());
+//                } catch (QueryExecutionException e) {
+//                    throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+//                } catch (Exception e) {
+//                    throw new SparkException(e.getMessage(), e.getCause());
+//                }
+//
+//                StringBuilder sb = new StringBuilder();
+//                for (Map.Entry<Long, List<CassandraRow>> entry : entryList) {
+//                    List<CassandraRow> rows = entry.getValue();
+//                    CassandraRow first = rows.get(0);
+//                    String primaryTime = TimeUtil.date2String(first.getLong("primary_time"), TimeUtil.dateFormat1);
+//                    String secondaryTime = first.getLong("secondary_time") != null ? TimeUtil.date2String(first.getLong("secondary_time"), TimeUtil.dateFormat1) : "null";
+//                    sb.append(first.getString("host")).append(",").append(primaryTime).append(",").append(secondaryTime).append(",");
+//
+//                    Map<String, String> metricMap = new HashMap<>();
+//                    for (CassandraRow row : rows) {
+//                        metricMap.put(row.getString("metric"), row.getString("value"));
+//                    }
+//                    for (String metric : metrics) {
+//                        sb.append(metricMap.getOrDefault(metric, "")).append(",");
+//                    }
+//                    sb.delete(sb.length() - 1, sb.length());
+//                    sb.append(lineSeparator);
+//                }
+//                //write to file
+//                fw.write(sb.toString());
+//                fw.flush();
+//            }
+//        }
+//
+//        fw.close();
+//    }
+//
+//    @Override
+//    public void exportDoubleCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+//        if (endTime < startTime) return;
+//
+//        //generate time ranges
+//        List<Long> timePoints = new ArrayList<>();
+//        timePoints.add(startTime);
+//        long splitMillis = splitHours * 60 * 60 * 1000;
+//        while (startTime + splitMillis < endTime) {
+//            startTime = startTime + splitMillis;
+//            timePoints.add(startTime);
+//        }
+//        timePoints.add(endTime);
+//
+//        String lineSeparator = System.getProperty("line.separator");
+//        FileWriter fw = new FileWriter(filePath, true);
+//        //construct file header and write to file
+//        StringBuilder head = new StringBuilder();
+//        head.append("ID号,").append("生成时间,").append("接收时间,");
+//        for (String metric : metrics) {
+//            head.append(metric).append(",");
+//        }
+//        head.delete(head.length() - 1, head.length());
+//        head.append(lineSeparator);
+//        fw.write(head.toString());
+//        fw.flush();
+//
+//        String queryFilter = (filter == null) ? "" : " and " + filter;
+//        //construct data output and write to file
+//        for (String host : hosts) {
+//            List<String> single = new ArrayList<>();
+//            single.add(host);
+//            for (int j = 0; j < timePoints.size() - 1; ++j) {
+//                List<Map.Entry<Long, List<CassandraRow>>> entryList = new ArrayList<>();
+//                try {
+//                    List<String> predicates = getRangeQueryPredicates(single, metrics, timePoints.get(j), timePoints.get(j + 1), "", false);
+//                    if (predicates.size() == 0) {
+//                        continue;
+//                    }
+//                    //query cassandra
+//                    JavaRDD<CassandraRow> resultRDD = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_double").select("host", "metric", "primary_time", "secondary_time", "value").where(predicates.get(0) + queryFilter);
+//                    for (int i = 1; i < predicates.size(); ++i) {
+//                        CassandraTableScanJavaRDD<CassandraRow> rdd = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_double").select("host", "metric", "primary_time", "secondary_time", "value").where(predicates.get(i) + queryFilter);
+//                        resultRDD = resultRDD.union(rdd);
+//                    }
+//
+//                    entryList = resultRDD.collect()
+//                            .stream()
+//                            .collect(Collectors.groupingBy(e -> e.getLong("primary_time")))
+//                            .entrySet()
+//                            .stream()
+//                            .sorted((e1, e2) -> e1.getKey().compareTo(e2.getKey()))
+//                            .collect(Collectors.toList());
+//                } catch (NoHostAvailableException e) {
+//                    throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
+//                } catch (OperationTimedOutException | ReadTimeoutException e) {
+//                    throw new TimeoutException(e.getMessage(), e.getCause());
+//                } catch (QueryExecutionException e) {
+//                    throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+//                } catch (Exception e) {
+//                    throw new SparkException(e.getMessage(), e.getCause());
+//                }
+//
+//                StringBuilder sb = new StringBuilder();
+//                for (Map.Entry<Long, List<CassandraRow>> entry : entryList) {
+//                    List<CassandraRow> rows = entry.getValue();
+//                    CassandraRow first = rows.get(0);
+//                    String primaryTime = TimeUtil.date2String(first.getLong("primary_time"), TimeUtil.dateFormat1);
+//                    String secondaryTime = first.getLong("secondary_time") != null ? TimeUtil.date2String(first.getLong("secondary_time"), TimeUtil.dateFormat1) : "null";
+//                    sb.append(first.getString("host")).append(",").append(primaryTime).append(",").append(secondaryTime).append(",");
+//
+//                    Map<String, String> metricMap = new HashMap<>();
+//                    for (CassandraRow row : rows) {
+//                        metricMap.put(row.getString("metric"), row.getString("value"));
+//                    }
+//                    for (String metric : metrics) {
+//                        sb.append(metricMap.getOrDefault(metric, "")).append(",");
+//                    }
+//                    sb.delete(sb.length() - 1, sb.length());
+//                    sb.append(lineSeparator);
+//                }
+//                //write to file
+//                fw.write(sb.toString());
+//                fw.flush();
+//            }
+//        }
+//
+//        fw.close();
+//    }
+//
+//    @Override
+//    public void exportBooleanCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+//        if (endTime < startTime) return;
+//
+//        //generate time ranges
+//        List<Long> timePoints = new ArrayList<>();
+//        timePoints.add(startTime);
+//        long splitMillis = splitHours * 60 * 60 * 1000;
+//        while (startTime + splitMillis < endTime) {
+//            startTime = startTime + splitMillis;
+//            timePoints.add(startTime);
+//        }
+//        timePoints.add(endTime);
+//
+//        String lineSeparator = System.getProperty("line.separator");
+//        FileWriter fw = new FileWriter(filePath, true);
+//        //construct file header and write to file
+//        StringBuilder head = new StringBuilder();
+//        head.append("ID号,").append("生成时间,").append("接收时间,");
+//        for (String metric : metrics) {
+//            head.append(metric).append(",");
+//        }
+//        head.delete(head.length() - 1, head.length());
+//        head.append(lineSeparator);
+//        fw.write(head.toString());
+//        fw.flush();
+//
+//        String queryFilter = (filter == null) ? "" : " and " + filter;
+//        //construct data output and write to file
+//        for (String host : hosts) {
+//            List<String> single = new ArrayList<>();
+//            single.add(host);
+//            for (int j = 0; j < timePoints.size() - 1; ++j) {
+//                List<Map.Entry<Long, List<CassandraRow>>> entryList = new ArrayList<>();
+//                try {
+//                    List<String> predicates = getRangeQueryPredicates(single, metrics, timePoints.get(j), timePoints.get(j + 1), "", false);
+//                    if (predicates.size() == 0) {
+//                        continue;
+//                    }
+//                    //query cassandra
+//                    JavaRDD<CassandraRow> resultRDD = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_boolean").select("host", "metric", "primary_time", "secondary_time", "value").where(predicates.get(0) + queryFilter);
+//                    for (int i = 1; i < predicates.size(); ++i) {
+//                        CassandraTableScanJavaRDD<CassandraRow> rdd = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_boolean").select("host", "metric", "primary_time", "secondary_time", "value").where(predicates.get(i) + queryFilter);
+//                        resultRDD = resultRDD.union(rdd);
+//                    }
+//
+//                    entryList = resultRDD.collect()
+//                            .stream()
+//                            .collect(Collectors.groupingBy(e -> e.getLong("primary_time")))
+//                            .entrySet()
+//                            .stream()
+//                            .sorted((e1, e2) -> e1.getKey().compareTo(e2.getKey()))
+//                            .collect(Collectors.toList());
+//                } catch (NoHostAvailableException e) {
+//                    throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
+//                } catch (OperationTimedOutException | ReadTimeoutException e) {
+//                    throw new TimeoutException(e.getMessage(), e.getCause());
+//                } catch (QueryExecutionException e) {
+//                    throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+//                } catch (Exception e) {
+//                    throw new SparkException(e.getMessage(), e.getCause());
+//                }
+//
+//                StringBuilder sb = new StringBuilder();
+//                for (Map.Entry<Long, List<CassandraRow>> entry : entryList) {
+//                    List<CassandraRow> rows = entry.getValue();
+//                    CassandraRow first = rows.get(0);
+//                    String primaryTime = TimeUtil.date2String(first.getLong("primary_time"), TimeUtil.dateFormat1);
+//                    String secondaryTime = first.getLong("secondary_time") != null ? TimeUtil.date2String(first.getLong("secondary_time"), TimeUtil.dateFormat1) : "null";
+//                    sb.append(first.getString("host")).append(",").append(primaryTime).append(",").append(secondaryTime).append(",");
+//
+//                    Map<String, String> metricMap = new HashMap<>();
+//                    for (CassandraRow row : rows) {
+//                        metricMap.put(row.getString("metric"), row.getString("value"));
+//                    }
+//                    for (String metric : metrics) {
+//                        sb.append(metricMap.getOrDefault(metric, "")).append(",");
+//                    }
+//                    sb.delete(sb.length() - 1, sb.length());
+//                    sb.append(lineSeparator);
+//                }
+//                //write to file
+//                fw.write(sb.toString());
+//                fw.flush();
+//            }
+//        }
+//
+//        fw.close();
+//    }
+//
+//    @Override
+//    public void exportStringCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+//        if (endTime < startTime) return;
+//
+//        //generate time ranges
+//        List<Long> timePoints = new ArrayList<>();
+//        timePoints.add(startTime);
+//        long splitMillis = splitHours * 60 * 60 * 1000;
+//        while (startTime + splitMillis < endTime) {
+//            startTime = startTime + splitMillis;
+//            timePoints.add(startTime);
+//        }
+//        timePoints.add(endTime);
+//
+//        String lineSeparator = System.getProperty("line.separator");
+//        FileWriter fw = new FileWriter(filePath, true);
+//        //construct file header and write to file
+//        StringBuilder head = new StringBuilder();
+//        head.append("ID号,").append("生成时间,").append("接收时间,");
+//        for (String metric : metrics) {
+//            head.append(metric).append(",");
+//        }
+//        head.delete(head.length() - 1, head.length());
+//        head.append(lineSeparator);
+//        fw.write(head.toString());
+//        fw.flush();
+//
+//        String regex = filter.split(" ")[2];
+//        //construct data output and write to file
+//        for (String host : hosts) {
+//            List<String> single = new ArrayList<>();
+//            single.add(host);
+//            for (int j = 0; j < timePoints.size() - 1; ++j) {
+//                List<Map.Entry<Long, List<CassandraRow>>> entryList = new ArrayList<>();
+//                try {
+//                    List<String> predicates = getRangeQueryPredicates(single, metrics, timePoints.get(j), timePoints.get(j + 1), "", false);
+//                    if (predicates.size() == 0) {
+//                        continue;
+//                    }
+//                    //query cassandra
+//                    JavaRDD<CassandraRow> resultRDD = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_text").select("host", "metric", "primary_time", "secondary_time", "value").where(predicates.get(0)).filter(x -> x.getString("value").matches(regex));
+//                    for (int i = 1; i < predicates.size(); ++i) {
+//                        JavaRDD<CassandraRow> rdd = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_text").select("host", "metric", "primary_time", "secondary_time", "value").where(predicates.get(i)).filter(x -> x.getString("value").matches(regex));
+//                        resultRDD = resultRDD.union(rdd);
+//                    }
+//
+//                    entryList = resultRDD.collect()
+//                            .stream()
+//                            .collect(Collectors.groupingBy(e -> e.getLong("primary_time")))
+//                            .entrySet()
+//                            .stream()
+//                            .sorted((e1, e2) -> e1.getKey().compareTo(e2.getKey()))
+//                            .collect(Collectors.toList());
+//                } catch (NoHostAvailableException e) {
+//                    throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
+//                } catch (OperationTimedOutException | ReadTimeoutException e) {
+//                    throw new TimeoutException(e.getMessage(), e.getCause());
+//                } catch (QueryExecutionException e) {
+//                    throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+//                } catch (Exception e) {
+//                    throw new SparkException(e.getMessage(), e.getCause());
+//                }
+//
+//                StringBuilder sb = new StringBuilder();
+//                for (Map.Entry<Long, List<CassandraRow>> entry : entryList) {
+//                    List<CassandraRow> rows = entry.getValue();
+//                    CassandraRow first = rows.get(0);
+//                    String primaryTime = TimeUtil.date2String(first.getLong("primary_time"), TimeUtil.dateFormat1);
+//                    String secondaryTime = first.getLong("secondary_time") != null ? TimeUtil.date2String(first.getLong("secondary_time"), TimeUtil.dateFormat1) : "null";
+//                    sb.append(first.getString("host")).append(",").append(primaryTime).append(",").append(secondaryTime).append(",");
+//
+//                    Map<String, String> metricMap = new HashMap<>();
+//                    for (CassandraRow row : rows) {
+//                        metricMap.put(row.getString("metric"), row.getString("value"));
+//                    }
+//                    for (String metric : metrics) {
+//                        sb.append(metricMap.getOrDefault(metric, "")).append(",");
+//                    }
+//                    sb.delete(sb.length() - 1, sb.length());
+//                    sb.append(lineSeparator);
+//                }
+//                //write to file
+//                fw.write(sb.toString());
+//                fw.flush();
+//            }
+//        }
+//
+//        fw.close();
+//    }
+//
+//    @Override
+//    public void exportGeoCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+//        if (endTime < startTime) return;
+//
+//        //generate time ranges
+//        List<Long> timePoints = new ArrayList<>();
+//        timePoints.add(startTime);
+//        long splitMillis = splitHours * 60 * 60 * 1000;
+//        while (startTime + splitMillis < endTime) {
+//            startTime = startTime + splitMillis;
+//            timePoints.add(startTime);
+//        }
+//        timePoints.add(endTime);
+//
+//        String lineSeparator = System.getProperty("line.separator");
+//        FileWriter fw = new FileWriter(filePath, true);
+//        //construct file header and write to file
+//        StringBuilder head = new StringBuilder();
+//        head.append("ID号,").append("生成时间,").append("接收时间,");
+//        for (String metric : metrics) {
+//            head.append(metric).append(",");
+//        }
+//        head.delete(head.length() - 1, head.length());
+//        head.append(lineSeparator);
+//        fw.write(head.toString());
+//        fw.flush();
+//
+//        String queryFilter = (filter == null) ? "" : " and " + filter;
+//        //construct data output and write to file
+//        for (String host : hosts) {
+//            List<String> single = new ArrayList<>();
+//            single.add(host);
+//            for (int j = 0; j < timePoints.size() - 1; ++j) {
+//                List<Map.Entry<Long, List<CassandraRow>>> entryList = new ArrayList<>();
+//                try {
+//                    List<String> predicates = getRangeQueryPredicates(single, metrics, timePoints.get(j), timePoints.get(j + 1), "", false);
+//                    if (predicates.size() == 0) {
+//                        continue;
+//                    }
+//                    //query cassandra
+//                    JavaRDD<CassandraRow> resultRDD = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_geo").select("host", "metric", "primary_time", "secondary_time", "latitude", "longitude").where(predicates.get(0) + queryFilter);
+//                    for (int i = 1; i < predicates.size(); ++i) {
+//                        CassandraTableScanJavaRDD<CassandraRow> rdd = javaFunctions(sparkContext).cassandraTable("sagittarius", "data_geo").select("host", "metric", "primary_time", "secondary_time", "latitude", "longitude").where(predicates.get(i) + queryFilter);
+//                        resultRDD = resultRDD.union(rdd);
+//                    }
+//
+//                    entryList = resultRDD.collect()
+//                            .stream()
+//                            .collect(Collectors.groupingBy(e -> e.getLong("primary_time")))
+//                            .entrySet()
+//                            .stream()
+//                            .sorted((e1, e2) -> e1.getKey().compareTo(e2.getKey()))
+//                            .collect(Collectors.toList());
+//                } catch (NoHostAvailableException e) {
+//                    throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
+//                } catch (OperationTimedOutException | ReadTimeoutException e) {
+//                    throw new TimeoutException(e.getMessage(), e.getCause());
+//                } catch (QueryExecutionException e) {
+//                    throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+//                } catch (Exception e) {
+//                    throw new SparkException(e.getMessage(), e.getCause());
+//                }
+//
+//                StringBuilder sb = new StringBuilder();
+//                for (Map.Entry<Long, List<CassandraRow>> entry : entryList) {
+//                    List<CassandraRow> rows = entry.getValue();
+//                    CassandraRow first = rows.get(0);
+//                    String primaryTime = TimeUtil.date2String(first.getLong("primary_time"), TimeUtil.dateFormat1);
+//                    String secondaryTime = first.getLong("secondary_time") != null ? TimeUtil.date2String(first.getLong("secondary_time"), TimeUtil.dateFormat1) : "null";
+//                    sb.append(first.getString("host")).append(",").append(primaryTime).append(",").append(secondaryTime).append(",");
+//
+//                    Map<String, String> metricMap = new HashMap<>();
+//                    for (CassandraRow row : rows) {
+//                        metricMap.put(row.getString("metric"), row.getString("latitude") + "#" + row.getString("longitude"));
+//                    }
+//                    for (String metric : metrics) {
+//                        sb.append(metricMap.getOrDefault(metric, "")).append(",");
+//                    }
+//                    sb.delete(sb.length() - 1, sb.length());
+//                    sb.append(lineSeparator);
+//                }
+//                //write to file
+//                fw.write(sb.toString());
+//                fw.flush();
+//            }
+//        }
+//
+//        fw.close();
+//    }
 
     private List<AggregationData> getAggResult2(String filter) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         List<AggregationData> result;
@@ -3449,7 +3423,7 @@ public class SagittariusReader implements Reader {
 
     public void preAggregateFunction(List<String> hosts, List<String> metrics, long startTime, long endTime, Writer writer) throws com.sagittarius.exceptions.NoHostAvailableException, com.sagittarius.exceptions.QueryExecutionException, TimeoutException {
 
-        // TODO: 17-3-28 if hosts == null then hosts = all hosts, so does metrics
+
         try{
             long startTimeHour = (startTime+28800000) / 86400000;
             long endTimeHour = (endTime+28800000) / 86400000;
@@ -3459,37 +3433,56 @@ public class SagittariusReader implements Reader {
                 for (String host : hosts) {
                     for (String metric : metrics) {
                         ValueType valueType = getValueType(host, metric);
+                        Class classType = getClassType(valueType);
                         String tablename = getTableByType(valueType);
                         ArrayList<String> queryHost = new ArrayList<>();
                         queryHost.add(host);
                         ArrayList<String> queryMetric = new ArrayList<>();
                         queryMetric.add(metric);
                         String filter = getRangeQueryPredicates(queryHost, queryMetric, queryStartTime, queryEndTime, "", false).get(0);
+                        SimpleStatement maxStatement = new SimpleStatement("select max(value) from " + tablename + " where " + filter);
+                        SimpleStatement minStatement = new SimpleStatement("select min(value) from " + tablename + " where " + filter);
+                        SimpleStatement countStatement = new SimpleStatement("select count(value) from " + tablename + " where " + filter);
+                        SimpleStatement sumStatement = new SimpleStatement("select sum(value) from " + tablename + " where " + filter);
                         if(valueType == ValueType.STRING || valueType == ValueType.BOOLEAN || valueType == ValueType.GEO){
-                            SimpleStatement statement = new SimpleStatement("select count(value) from " + tablename + " where " + filter);
-                            ResultSet resultSet = session.execute(statement);
-                            double countResult = (double) (resultSet.all().get(0).getLong(0));
+                            ResultSet resultSet = session.execute(countStatement);
+                            long countResult = resultSet.all().get(0).getLong(0);
                             if (countResult > 0) {
-                                writer.insert(host, metric, startTimeHour, 0, 0, countResult, 0);
+                                writer.insert(host, metric, startTimeHour, 0, 0, (double)countResult, 0);
                             }
                         }
-                        else {
-                            SimpleStatement statement = new SimpleStatement("select max(value) from " + tablename + " where " + filter);
-                            ResultSet resultSet = session.execute(statement);
-                            double maxResult = (double) (resultSet.all().get(0).getFloat(0));
-                            statement = new SimpleStatement("select min(value) from " + tablename + " where " + filter);
-                            resultSet = session.execute(statement);
-                            double minResult = (double) (resultSet.all().get(0).getFloat(0));
-                            statement = new SimpleStatement("select count(value) from " + tablename + " where " + filter);
-                            resultSet = session.execute(statement);
-                            double countResult = (double) (resultSet.all().get(0).getLong(0));
-                            statement = new SimpleStatement("select sum(value) from " + tablename + " where " + filter);
-                            resultSet = session.execute(statement);
-                            double sumResult = (double) (resultSet.all().get(0).getFloat(0));
-                            if (countResult > 0) {
+                        else if(valueType == ValueType.INT){
+                            int maxResult = session.execute(maxStatement).one().getInt(0);
+                            int minResult = session.execute(minStatement).one().getInt(0);
+                            long countResult = session.execute(countStatement).one().getLong(0);
+                            int sumResult = session.execute(sumStatement).one().getInt(0);
+                            if(countResult > 0){
                                 writer.insert(host, metric, startTimeHour, maxResult, minResult, countResult, sumResult);
                             }
-
+                        }else if(valueType == ValueType.LONG){
+                            long maxResult = session.execute(maxStatement).one().getLong(0);
+                            long minResult = session.execute(minStatement).one().getLong(0);
+                            long countResult = session.execute(countStatement).one().getLong(0);
+                            long sumResult = session.execute(sumStatement).one().getLong(0);
+                            if(countResult > 0){
+                                writer.insert(host, metric, startTimeHour, maxResult, minResult, countResult, sumResult);
+                            }
+                        }else if(valueType == ValueType.FLOAT){
+                            float maxResult = session.execute(maxStatement).one().getFloat(0);
+                            float minResult = session.execute(minStatement).one().getFloat(0);
+                            long countResult = session.execute(countStatement).one().getLong(0);
+                            float sumResult = session.execute(sumStatement).one().getFloat(0);
+                            if(countResult > 0){
+                                writer.insert(host, metric, startTimeHour, maxResult, minResult, countResult, sumResult);
+                            }
+                        }else if(valueType == ValueType.DOUBLE){
+                            double maxResult = session.execute(maxStatement).one().getDouble(0);
+                            double minResult = session.execute(minStatement).one().getDouble(0);
+                            long countResult = session.execute(countStatement).one().getLong(0);
+                            double sumResult = session.execute(sumStatement).one().getDouble(0);
+                            if(countResult > 0){
+                                writer.insert(host, metric, startTimeHour, maxResult, minResult, countResult, sumResult);
+                            }
                         }
                     }
                 }
@@ -3502,6 +3495,31 @@ public class SagittariusReader implements Reader {
         } catch (QueryExecutionException e) {
             throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
         }
+    }
+
+    private static Class getClassType(ValueType valueType){
+        if(valueType == ValueType.INT){
+            return Integer.class;
+        }
+        if(valueType == ValueType.LONG){
+            return Long.class;
+        }
+        if(valueType == ValueType.FLOAT){
+            return Float.class;
+        }
+        if(valueType == ValueType.DOUBLE){
+            return Double.class;
+        }
+        if(valueType == ValueType.STRING){
+            return String.class;
+        }
+        if(valueType == ValueType.BOOLEAN){
+            return Boolean.class;
+        }
+        if(valueType == ValueType.GEO){
+            return Float.class;
+        }
+        return Object.class;
     }
 
 //    public void preAggregateFunction2(List<String> hosts, List<String> metrics, long startTime, long endTime, SagittariusWriter writer) throws com.sagittarius.exceptions.NoHostAvailableException, com.sagittarius.exceptions.QueryExecutionException, TimeoutException {

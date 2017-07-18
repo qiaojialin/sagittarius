@@ -15,14 +15,12 @@ import com.sagittarius.util.TimeUtil;
 import com.sagittarius.write.internals.Monitor;
 import com.sagittarius.write.internals.RecordAccumulator;
 import com.sagittarius.write.internals.Sender;
-import com.sun.scenario.effect.impl.sw.sse.SSEBlend_SRC_OUTPeer;
 
-import javax.swing.plaf.synth.SynthOptionPaneUI;
+import java.text.ParseException;
 import java.time.LocalDateTime;
 import java.util.*;
 
 import static com.datastax.driver.mapping.Mapper.Option.saveNullFields;
-import static com.datastax.driver.mapping.Mapper.Option.timestamp;
 
 public class SagittariusWriter implements Writer {
     private Session session;
@@ -90,48 +88,50 @@ public class SagittariusWriter implements Writer {
         deleteGeoStatement = session.prepare("delete from data_geo where host = :h and metric = :m and time_slice = :t");
     }
 
-    public SagittariusWriter(Session session, MappingManager mappingManager, int batchSize, int lingerMs) {
-        this.session = session;
-        this.mappingManager = mappingManager;
-        this.accumulator = new RecordAccumulator(batchSize, lingerMs, mappingManager);
-        this.sender = new Sender(session, this.accumulator);
-        this.autoBatch = true;
-        Thread sendThread = new Thread(sender);
-        sendThread.start();
-        preIntStatement = session.prepare("insert into data_int (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
-        preLongStatement = session.prepare("insert into data_long (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
-        preFloatStatement = session.prepare("insert into data_float (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
-        preDoubleStatement = session.prepare("insert into data_double (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
-        preStringStatement = session.prepare("insert into data_text (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
-        preBooleanStatement = session.prepare("insert into data_boolean (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
-        preGeoStatement = session.prepare("insert into data_geo (host, metric, time_slice, primary_time, secondary_time, latitude, longitude) values (:host, :metric, :ts, :pt, :st, :la, :lo)");
+//    public SagittariusWriter(Session session, MappingManager mappingManager, Cache<HostMetricPair, TypePartitionPair> cache, int batchSize, int lingerMs) {
+//        this.session = session;
+//        this.mappingManager = mappingManager;
+//        this.accumulator = new RecordAccumulator(batchSize, lingerMs, mappingManager);
+//        this.sender = new Sender(session, this.accumulator);
+//        this.cache = cache;
+//        this.autoBatch = true;
+//        Thread sendThread = new Thread(sender);
+//        sendThread.start();
+//        preIntStatement = session.prepare("insert into data_int (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
+//        preLongStatement = session.prepare("insert into data_long (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
+//        preFloatStatement = session.prepare("insert into data_float (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
+//        preDoubleStatement = session.prepare("insert into data_double (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
+//        preStringStatement = session.prepare("insert into data_text (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
+//        preBooleanStatement = session.prepare("insert into data_boolean (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
+//        preGeoStatement = session.prepare("insert into data_geo (host, metric, time_slice, primary_time, secondary_time, latitude, longitude) values (:host, :metric, :ts, :pt, :st, :la, :lo)");
+//
+//        preIntStatementWithoutST = session.prepare("insert into data_int (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
+//        preLongStatementWithoutST = session.prepare("insert into data_long (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
+//        preFloatStatementWithoutST = session.prepare("insert into data_float (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
+//        preDoubleStatementWithoutST = session.prepare("insert into data_double (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
+//        preStringStatementWithoutST = session.prepare("insert into data_text (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
+//        preBooleanStatementWithoutST = session.prepare("insert into data_boolean (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
+//        preGeoStatementWithoutST = session.prepare("insert into data_geo (host, metric, time_slice, primary_time, latitude, longitude) values (:host, :metric, :ts, :pt, :la, :lo)");
+//
+//        preLatestStatement = session.prepare("insert into latest (host, metric, time_slice) values (:host, :metric, :time_slice)");
+//
+//        preAggreStatement = session.prepare("insert into data_aggregation (host, metric, time_slice, max_value, min_value, count_value, sum_value) values (:host, :metric, :ts, :max, :min, :cnt, :sum)");
+//
+//        deleteIntStatement = session.prepare("delete from data_int where host = :h and metric = :m and time_slice = :t");
+//        deleteLongStatement = session.prepare("delete from data_long where host = :h and metric = :m and time_slice = :t");
+//        deleteFloatStatement = session.prepare("delete from data_float where host = :h and metric = :m and time_slice = :t");
+//        deleteDoubleStatement = session.prepare("delete from data_double where host = :h and metric = :m and time_slice = :t");
+//        deleteStringStatement = session.prepare("delete from data_text where host = :h and metric = :m and time_slice = :t");
+//        deleteBooleanStatement = session.prepare("delete from data_boolean where host = :h and metric = :m and time_slice = :t");
+//        deleteGeoStatement = session.prepare("delete from data_geo where host = :h and metric = :m and time_slice = :t");
+//    }
 
-        preIntStatementWithoutST = session.prepare("insert into data_int (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
-        preLongStatementWithoutST = session.prepare("insert into data_long (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
-        preFloatStatementWithoutST = session.prepare("insert into data_float (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
-        preDoubleStatementWithoutST = session.prepare("insert into data_double (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
-        preStringStatementWithoutST = session.prepare("insert into data_text (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
-        preBooleanStatementWithoutST = session.prepare("insert into data_boolean (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
-        preGeoStatementWithoutST = session.prepare("insert into data_geo (host, metric, time_slice, primary_time, latitude, longitude) values (:host, :metric, :ts, :pt, :la, :lo)");
-
-        preLatestStatement = session.prepare("insert into latest (host, metric, time_slice) values (:host, :metric, :time_slice)");
-
-        preAggreStatement = session.prepare("insert into data_aggregation (host, metric, time_slice, max_value, min_value, count_value, sum_value) values (:host, :metric, :ts, :max, :min, :cnt, :sum)");
-
-        deleteIntStatement = session.prepare("delete from data_int where host = :h and metric = :m and time_slice = :t");
-        deleteLongStatement = session.prepare("delete from data_long where host = :h and metric = :m and time_slice = :t");
-        deleteFloatStatement = session.prepare("delete from data_float where host = :h and metric = :m and time_slice = :t");
-        deleteDoubleStatement = session.prepare("delete from data_double where host = :h and metric = :m and time_slice = :t");
-        deleteStringStatement = session.prepare("delete from data_text where host = :h and metric = :m and time_slice = :t");
-        deleteBooleanStatement = session.prepare("delete from data_boolean where host = :h and metric = :m and time_slice = :t");
-        deleteGeoStatement = session.prepare("delete from data_geo where host = :h and metric = :m and time_slice = :t");
-    }
-
-    public SagittariusWriter(Session session, MappingManager mappingManager, int batchSize, int lingerMs, Monitor monitor) {
+    public SagittariusWriter(Session session, MappingManager mappingManager, Cache<HostMetricPair, TypePartitionPair> cache, int batchSize, int lingerMs, Monitor monitor) {
         this.session = session;
         this.mappingManager = mappingManager;
         this.accumulator = new RecordAccumulator(batchSize, lingerMs, mappingManager);
         this.sender = new Sender(session, this.accumulator, monitor);
+        this.cache = cache;
         this.autoBatch = true;
         Thread sendThread = new Thread(sender);
         sendThread.start();
@@ -198,15 +198,27 @@ public class SagittariusWriter implements Writer {
             updateLatest(new Latest(host, metric, timeSlice));
         }
 
-        public void addDatum(String host, String metric, long primaryTime, long secondaryTime, int value) throws UnregisteredHostMetricException {
+        public void addDatum(String host, String metric, long primaryTime, long secondaryTime, int value) throws UnregisteredHostMetricException, DataTypeMismatchException {
             HostMetric hostMetric = getHostMetric(host, metric);
             if(hostMetric != null){
-                addDatum(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+                if(hostMetric.getValueType() != ValueType.INT){
+                    throw new DataTypeMismatchException("Mismatched DataType : Int. DataType of the value should be " + getValueTypeString(hostMetric.getValueType()));
+                }
+                else {
+                    addDatum(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+                }
             }
             else {
                 throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
             }
         }
+
+        public void addDatum(String host, String metric, String primaryTime, String secondaryTime, int value) throws UnregisteredHostMetricException, DataTypeMismatchException, ParseException {
+            long pTime = TimeUtil.string2Date(primaryTime);
+            long sTime = TimeUtil.string2Date(secondaryTime);
+            addDatum(host, metric, pTime, sTime, value);
+        }
+
 
         public void addDatum(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, long value) {
             String timeSlice = TimeUtil.generateTimeSlice(primaryTime, timePartition);
@@ -216,14 +228,25 @@ public class SagittariusWriter implements Writer {
             updateLatest(new Latest(host, metric, timeSlice));
         }
 
-        public void addDatum(String host, String metric, long primaryTime, long secondaryTime, long value) throws UnregisteredHostMetricException {
+        public void addDatum(String host, String metric, long primaryTime, long secondaryTime, long value) throws UnregisteredHostMetricException, DataTypeMismatchException {
             HostMetric hostMetric = getHostMetric(host, metric);
             if(hostMetric != null){
-                addDatum(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+                if(hostMetric.getValueType() != ValueType.LONG){
+                    throw new DataTypeMismatchException("Mismatched DataType : Long. DataType of the value should be " + getValueTypeString(hostMetric.getValueType()));
+                }
+                else {
+                    addDatum(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+                }
             }
             else {
                 throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
             }
+        }
+
+        public void addDatum(String host, String metric, String primaryTime, String secondaryTime, long value) throws UnregisteredHostMetricException, DataTypeMismatchException, ParseException {
+            long pTime = TimeUtil.string2Date(primaryTime);
+            long sTime = TimeUtil.string2Date(secondaryTime);
+            addDatum(host, metric, pTime, sTime, value);
         }
 
         public void addDatum(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, float value) {
@@ -234,14 +257,25 @@ public class SagittariusWriter implements Writer {
             updateLatest(new Latest(host, metric, timeSlice));
         }
 
-        public void addDatum(String host, String metric, long primaryTime, long secondaryTime, float value) throws UnregisteredHostMetricException {
+        public void addDatum(String host, String metric, long primaryTime, long secondaryTime, float value) throws UnregisteredHostMetricException, DataTypeMismatchException {
             HostMetric hostMetric = getHostMetric(host, metric);
             if(hostMetric != null){
-                addDatum(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+                if(hostMetric.getValueType() != ValueType.FLOAT){
+                    throw new DataTypeMismatchException("Mismatched DataType : Float. DataType of the value should be " + getValueTypeString(hostMetric.getValueType()));
+                }
+                else {
+                    addDatum(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+                }
             }
             else {
                 throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
             }
+        }
+
+        public void addDatum(String host, String metric, String primaryTime, String secondaryTime, float value) throws UnregisteredHostMetricException, DataTypeMismatchException, ParseException {
+            long pTime = TimeUtil.string2Date(primaryTime);
+            long sTime = TimeUtil.string2Date(secondaryTime);
+            addDatum(host, metric, pTime, sTime, value);
         }
 
         public void addDatum(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, double value) {
@@ -252,14 +286,25 @@ public class SagittariusWriter implements Writer {
             updateLatest(new Latest(host, metric, timeSlice));
         }
 
-        public void addDatum(String host, String metric, long primaryTime, long secondaryTime, double value) throws UnregisteredHostMetricException {
+        public void addDatum(String host, String metric, long primaryTime, long secondaryTime, double value) throws UnregisteredHostMetricException, DataTypeMismatchException {
             HostMetric hostMetric = getHostMetric(host, metric);
             if(hostMetric != null){
-                addDatum(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+                if(hostMetric.getValueType() != ValueType.DOUBLE){
+                    throw new DataTypeMismatchException("Mismatched DataType : Double. DataType of the value should be " + getValueTypeString(hostMetric.getValueType()));
+                }
+                else {
+                    addDatum(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+                }
             }
             else {
                 throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
             }
+        }
+
+        public void addDatum(String host, String metric, String primaryTime, String secondaryTime, double value) throws UnregisteredHostMetricException, DataTypeMismatchException, ParseException {
+            long pTime = TimeUtil.string2Date(primaryTime);
+            long sTime = TimeUtil.string2Date(secondaryTime);
+            addDatum(host, metric, pTime, sTime, value);
         }
 
         public void addDatum(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, boolean value) {
@@ -270,14 +315,25 @@ public class SagittariusWriter implements Writer {
             updateLatest(new Latest(host, metric, timeSlice));
         }
 
-        public void addDatum(String host, String metric, long primaryTime, long secondaryTime, boolean value) throws UnregisteredHostMetricException {
+        public void addDatum(String host, String metric, long primaryTime, long secondaryTime, boolean value) throws UnregisteredHostMetricException, DataTypeMismatchException {
             HostMetric hostMetric = getHostMetric(host, metric);
             if(hostMetric != null){
-                addDatum(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+                if(hostMetric.getValueType() != ValueType.BOOLEAN){
+                    throw new DataTypeMismatchException("Mismatched DataType : Boolean. DataType of the value should be " + getValueTypeString(hostMetric.getValueType()));
+                }
+                else {
+                    addDatum(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+                }
             }
             else {
                 throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
             }
+        }
+
+        public void addDatum(String host, String metric, String primaryTime, String secondaryTime, boolean value) throws UnregisteredHostMetricException, DataTypeMismatchException, ParseException {
+            long pTime = TimeUtil.string2Date(primaryTime);
+            long sTime = TimeUtil.string2Date(secondaryTime);
+            addDatum(host, metric, pTime, sTime, value);
         }
 
         public void addDatum(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, String value) {
@@ -288,14 +344,25 @@ public class SagittariusWriter implements Writer {
             updateLatest(new Latest(host, metric, timeSlice));
         }
 
-        public void addDatum(String host, String metric, long primaryTime, long secondaryTime, String value) throws UnregisteredHostMetricException {
+        public void addDatum(String host, String metric, long primaryTime, long secondaryTime, String value) throws UnregisteredHostMetricException, DataTypeMismatchException {
             HostMetric hostMetric = getHostMetric(host, metric);
             if(hostMetric != null){
-                addDatum(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+                if(hostMetric.getValueType() != ValueType.STRING){
+                    throw new DataTypeMismatchException("Mismatched DataType : String. DataType of the value should be " + getValueTypeString(hostMetric.getValueType()));
+                }
+                else {
+                    addDatum(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+                }
             }
             else {
                 throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
             }
+        }
+
+        public void addDatum(String host, String metric, String primaryTime, String secondaryTime, String value) throws UnregisteredHostMetricException, DataTypeMismatchException, ParseException {
+            long pTime = TimeUtil.string2Date(primaryTime);
+            long sTime = TimeUtil.string2Date(secondaryTime);
+            addDatum(host, metric, pTime, sTime, value);
         }
 
         public void addDatum(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, float latitude, float longitude) {
@@ -306,14 +373,25 @@ public class SagittariusWriter implements Writer {
             updateLatest(new Latest(host, metric, timeSlice));
         }
 
-        public void addDatum(String host, String metric, long primaryTime, long secondaryTime,  float latitude, float longitude) throws UnregisteredHostMetricException {
+        public void addDatum(String host, String metric, long primaryTime, long secondaryTime,  float latitude, float longitude) throws UnregisteredHostMetricException, DataTypeMismatchException {
             HostMetric hostMetric = getHostMetric(host, metric);
             if(hostMetric != null){
-                addDatum(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), latitude, longitude);
+                if(hostMetric.getValueType() != ValueType.GEO){
+                    throw new DataTypeMismatchException("Mismatched DataType : Geo. DataType of the value should be " + getValueTypeString(hostMetric.getValueType()));
+                }
+                else {
+                    addDatum(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), latitude, longitude);
+                }
             }
             else {
                 throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
             }
+        }
+
+        public void addDatum(String host, String metric, String primaryTime, String secondaryTime, float lagitude, float longitude) throws UnregisteredHostMetricException, DataTypeMismatchException, ParseException {
+            long pTime = TimeUtil.string2Date(primaryTime);
+            long sTime = TimeUtil.string2Date(secondaryTime);
+            addDatum(host, metric, pTime, sTime, lagitude, longitude);
         }
     }
 
@@ -375,10 +453,15 @@ public class SagittariusWriter implements Writer {
     }
 
     @Override
-    public void insert(String host, String metric, long primaryTime, long secondaryTime, int value) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, UnregisteredHostMetricException {
+    public void insert(String host, String metric, long primaryTime, long secondaryTime, int value) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, UnregisteredHostMetricException, DataTypeMismatchException {
         HostMetric hostMetric = getHostMetric(host, metric);
         if(hostMetric != null){
-            insert(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+            if(hostMetric.getValueType() != ValueType.INT){
+                throw new DataTypeMismatchException("Mismatched DataType : Int. DataType of the value should be " + getValueTypeString(hostMetric.getValueType()));
+            }
+            else {
+                insert(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+            }
         }
         else {
             throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
@@ -408,10 +491,15 @@ public class SagittariusWriter implements Writer {
     }
 
     @Override
-    public void insert(String host, String metric, long primaryTime, long secondaryTime, long value) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, UnregisteredHostMetricException {
+    public void insert(String host, String metric, long primaryTime, long secondaryTime, long value) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, UnregisteredHostMetricException, DataTypeMismatchException {
         HostMetric hostMetric = getHostMetric(host, metric);
         if(hostMetric != null){
-            insert(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+            if(hostMetric.getValueType() != ValueType.LONG){
+                throw new DataTypeMismatchException("Mismatched DataType : Long. DataType of the value should be " + getValueTypeString(hostMetric.getValueType()));
+            }
+            else {
+                insert(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+            }
         }
         else {
             throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
@@ -441,10 +529,15 @@ public class SagittariusWriter implements Writer {
     }
 
     @Override
-    public void insert(String host, String metric, long primaryTime, long secondaryTime, float value) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, UnregisteredHostMetricException {
+    public void insert(String host, String metric, long primaryTime, long secondaryTime, float value) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, UnregisteredHostMetricException, DataTypeMismatchException {
         HostMetric hostMetric = getHostMetric(host, metric);
         if(hostMetric != null){
-            insert(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+            if(hostMetric.getValueType() != ValueType.FLOAT){
+                throw new DataTypeMismatchException("Mismatched DataType : Float. DataType of the value should be " + getValueTypeString(hostMetric.getValueType()));
+            }
+            else {
+                insert(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+            }
         }
         else {
             throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
@@ -474,10 +567,15 @@ public class SagittariusWriter implements Writer {
     }
 
     @Override
-    public void insert(String host, String metric, long primaryTime, long secondaryTime, double value) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, UnregisteredHostMetricException {
+    public void insert(String host, String metric, long primaryTime, long secondaryTime, double value) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, UnregisteredHostMetricException, DataTypeMismatchException {
         HostMetric hostMetric = getHostMetric(host, metric);
         if(hostMetric != null){
-            insert(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+            if(hostMetric.getValueType() != ValueType.DOUBLE){
+                throw new DataTypeMismatchException("Mismatched DataType : Double. DataType of the value should be " + getValueTypeString(hostMetric.getValueType()));
+            }
+            else {
+                insert(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+            }
         }
         else {
             throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
@@ -507,10 +605,15 @@ public class SagittariusWriter implements Writer {
     }
 
     @Override
-    public void insert(String host, String metric, long primaryTime, long secondaryTime, boolean value) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, UnregisteredHostMetricException {
+    public void insert(String host, String metric, long primaryTime, long secondaryTime, boolean value) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, UnregisteredHostMetricException, DataTypeMismatchException {
         HostMetric hostMetric = getHostMetric(host, metric);
         if(hostMetric != null){
-            insert(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+            if(hostMetric.getValueType() != ValueType.BOOLEAN){
+                throw new DataTypeMismatchException("Mismatched DataType : Boolean. DataType of the value should be " + getValueTypeString(hostMetric.getValueType()));
+            }
+            else {
+                insert(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+            }
         }
         else {
             throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
@@ -540,10 +643,15 @@ public class SagittariusWriter implements Writer {
     }
 
     @Override
-    public void insert(String host, String metric, long primaryTime, long secondaryTime, String value) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, UnregisteredHostMetricException {
+    public void insert(String host, String metric, long primaryTime, long secondaryTime, String value) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, UnregisteredHostMetricException, DataTypeMismatchException {
         HostMetric hostMetric = getHostMetric(host, metric);
         if(hostMetric != null){
-            insert(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+            if(hostMetric.getValueType() != ValueType.STRING){
+                throw new DataTypeMismatchException("Mismatched DataType : String. DataType of the value should be " + getValueTypeString(hostMetric.getValueType()));
+            }
+            else {
+                insert(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+            }
         }
         else {
             throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
@@ -573,10 +681,15 @@ public class SagittariusWriter implements Writer {
     }
 
     @Override
-    public void insert(String host, String metric, long primaryTime, long secondaryTime, float latitude, float longitude) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, UnregisteredHostMetricException {
+    public void insert(String host, String metric, long primaryTime, long secondaryTime, float latitude, float longitude) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, UnregisteredHostMetricException, DataTypeMismatchException {
         HostMetric hostMetric = getHostMetric(host, metric);
         if(hostMetric != null){
-            insert(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), latitude, longitude);
+            if(hostMetric.getValueType() != ValueType.GEO){
+                throw new DataTypeMismatchException("Mismatched DataType : Geo. DataType of the value should be " + getValueTypeString(hostMetric.getValueType()));
+            }
+            else {
+                insert(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), latitude, longitude);
+            }
         }
         else {
             throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
@@ -799,5 +912,31 @@ public class SagittariusWriter implements Writer {
 
             batchStatement.clear();
         }
+    }
+
+    private String getValueTypeString(ValueType valueType){
+        if(valueType == ValueType.INT){
+            return "Int";
+        }
+        if(valueType == ValueType.LONG){
+            return "Long";
+        }
+        if(valueType == ValueType.FLOAT){
+            return "Float";
+        }
+        if(valueType == ValueType.DOUBLE){
+            return "Double";
+        }
+        if(valueType == ValueType.STRING){
+            return "String";
+        }
+        if(valueType == ValueType.BOOLEAN){
+            return "Boolean";
+        }
+        if(valueType == ValueType.GEO){
+            return "Geo";
+        }
+
+        return "";
     }
 }
