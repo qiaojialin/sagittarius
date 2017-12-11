@@ -734,7 +734,12 @@ public class SagittariusReader implements Reader {
                 String metric = latest.getMetric();
                 String timeSlice = latest.getTimeSlice();
                 ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.INT);
-                IntData data = mapperInt.map(rs).one();
+                //if data type mismatch, then the rs contains nothing.
+                List<IntData> r = mapperInt.map(rs).all();
+                if(r.isEmpty()){
+                    continue;
+                }
+                IntData data = r.get(0);
                 if (result.containsKey(host)) {
                     result.get(host).put(metric, new IntPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
                 } else {
@@ -760,14 +765,19 @@ public class SagittariusReader implements Reader {
 
         try {
             Result<Latest> latests = getLatestResult(hosts, metrics);
-            Mapper<LongData> mapperInt = mappingManager.mapper(LongData.class);
+            Mapper<LongData> mapperLong = mappingManager.mapper(LongData.class);
 
             for (Latest latest : latests) {
                 String host = latest.getHost();
                 String metric = latest.getMetric();
                 String timeSlice = latest.getTimeSlice();
                 ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.LONG);
-                LongData data = mapperInt.map(rs).one();
+                //if data type mismatch, then the rs contains nothing.
+                List<LongData> r = mapperLong.map(rs).all();
+                if(r.isEmpty()){
+                    continue;
+                }
+                LongData data = r.get(0);
                 if (result.containsKey(host)) {
                     result.get(host).put(metric, new LongPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
                 } else {
@@ -793,14 +803,19 @@ public class SagittariusReader implements Reader {
 
         try {
             Result<Latest> latests = getLatestResult(hosts, metrics);
-            Mapper<FloatData> mapperInt = mappingManager.mapper(FloatData.class);
+            Mapper<FloatData> mapperFloat = mappingManager.mapper(FloatData.class);
 
             for (Latest latest : latests) {
                 String host = latest.getHost();
                 String metric = latest.getMetric();
                 String timeSlice = latest.getTimeSlice();
                 ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.FLOAT);
-                FloatData data = mapperInt.map(rs).one();
+                //if data type mismatch, then the rs contains nothing.
+                List<FloatData> r = mapperFloat.map(rs).all();
+                if(r.isEmpty()){
+                    continue;
+                }
+                FloatData data = r.get(0);
                 if (result.containsKey(host)) {
                     result.get(host).put(metric, new FloatPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
                 } else {
@@ -826,15 +841,19 @@ public class SagittariusReader implements Reader {
 
         try {
             Result<Latest> latests = getLatestResult(hosts, metrics);
-            Mapper<DoubleData> mapperInt = mappingManager.mapper(DoubleData.class);
+            Mapper<DoubleData> mapperDouble = mappingManager.mapper(DoubleData.class);
 
             for (Latest latest : latests) {
                 String host = latest.getHost();
                 String metric = latest.getMetric();
                 String timeSlice = latest.getTimeSlice();
                 ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.DOUBLE);
-                DoubleData data = mapperInt.map(rs).one();
-
+                //if data type mismatch, then the rs contains nothing.
+                List<DoubleData> r = mapperDouble.map(rs).all();
+                if(r.isEmpty()){
+                    continue;
+                }
+                DoubleData data = r.get(0);
                 if (result.containsKey(host)) {
                     result.get(host).put(metric, new DoublePoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
                 } else {
@@ -860,14 +879,19 @@ public class SagittariusReader implements Reader {
 
         try {
             Result<Latest> latests = getLatestResult(hosts, metrics);
-            Mapper<BooleanData> mapperInt = mappingManager.mapper(BooleanData.class);
+            Mapper<BooleanData> mapperBoolean = mappingManager.mapper(BooleanData.class);
 
             for (Latest latest : latests) {
                 String host = latest.getHost();
                 String metric = latest.getMetric();
                 String timeSlice = latest.getTimeSlice();
                 ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.BOOLEAN);
-                BooleanData data = mapperInt.map(rs).one();
+                //if data type mismatch, then the rs contains nothing.
+                List<BooleanData> r = mapperBoolean.map(rs).all();
+                if(r.isEmpty()){
+                    continue;
+                }
+                BooleanData data = r.get(0);
                 if (result.containsKey(host)) {
                     result.get(host).put(metric, new BooleanPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
                 } else {
@@ -893,14 +917,19 @@ public class SagittariusReader implements Reader {
 
         try {
             Result<Latest> latests = getLatestResult(hosts, metrics);
-            Mapper<StringData> mapperInt = mappingManager.mapper(StringData.class);
+            Mapper<StringData> mapperString = mappingManager.mapper(StringData.class);
 
             for (Latest latest : latests) {
                 String host = latest.getHost();
                 String metric = latest.getMetric();
                 String timeSlice = latest.getTimeSlice();
                 ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.STRING);
-                StringData data = mapperInt.map(rs).one();
+                //if data type mismatch, then the rs contains nothing.
+                List<StringData> r = mapperString.map(rs).all();
+                if(r.isEmpty()){
+                    continue;
+                }
+                StringData data = r.get(0);
                 if (result.containsKey(host)) {
                     result.get(host).put(metric, new StringPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
                 } else {
@@ -926,14 +955,19 @@ public class SagittariusReader implements Reader {
 
         try {
             Result<Latest> latests = getLatestResult(hosts, metrics);
-            Mapper<GeoData> mapperInt = mappingManager.mapper(GeoData.class);
+            Mapper<GeoData> mapperGeo = mappingManager.mapper(GeoData.class);
 
             for (Latest latest : latests) {
                 String host = latest.getHost();
                 String metric = latest.getMetric();
                 String timeSlice = latest.getTimeSlice();
                 ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.GEO);
-                GeoData data = mapperInt.map(rs).one();
+                //if data type mismatch, then the rs contains nothing.
+                List<GeoData> r = mapperGeo.map(rs).all();
+                if(r.isEmpty()){
+                    continue;
+                }
+                GeoData data = r.get(0);
                 if (result.containsKey(host)) {
                     result.get(host).put(metric, new GeoPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getLatitude(), data.getLongitude()));
                 } else {

@@ -5,11 +5,13 @@ import com.datastax.driver.core.exceptions.WriteTimeoutException;
 import com.sagittarius.bean.common.TimePartition;
 import com.sagittarius.exceptions.QueryExecutionException;
 import com.sagittarius.exceptions.TimeoutException;
+import com.sagittarius.util.TimeUtil;
 import com.sagittarius.write.SagittariusWriter;
 import com.sagittarius.write.Writer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.text.ParseException;
 import java.util.Random;
 
 public class BatchWriteTask extends Thread {
@@ -40,15 +42,22 @@ public class BatchWriteTask extends Thread {
         random = new Random();
     }
 
-    @Override
     public void run() {
         long start = System.currentTimeMillis();
-        long time = System.currentTimeMillis();
+        long time = 0;
+        long dataTime = 1L;
+        try {
+            dataTime = TimeUtil.string2Date("2017-08-18 15:33:54");
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        int counter = 0;
         long consumeTime = 0;
         while ((System.currentTimeMillis() - start) < runTime * 60 * 60 * 1000) {
             SagittariusWriter.Data data = writer.newData();
+            counter++;
             for (int i = 0; i < batchSize; ++i) {
-                data.addDatum(host, "APP", time, time, TimePartition.DAY, random.nextDouble() * 100);
+                data.addDatum(counter%10000+host, counter%500000+"APP"+i, dataTime+time%1000000, time, TimePartition.DAY, random.nextDouble() * 100);
                 ++time;
             }
             long startTime = System.currentTimeMillis();

@@ -38,16 +38,6 @@ public abstract class AbstractData {
     }
 
     @PartitionKey(1)
-    @Column(name = "metric")
-    public String getMetric() {
-        return metric;
-    }
-
-    public void setMetric(String metric) {
-        this.metric = metric;
-    }
-
-    @PartitionKey(2)
     @Column(name = "time_slice")
     public String getTimeSlice() {
         return timeSlice;
@@ -57,7 +47,17 @@ public abstract class AbstractData {
         this.timeSlice = timeSlice;
     }
 
-    @ClusteringColumn
+    @ClusteringColumn(0)
+    @Column(name = "metric")
+    public String getMetric() {
+        return metric;
+    }
+
+    public void setMetric(String metric) {
+        this.metric = metric;
+    }
+
+    @ClusteringColumn(1)
     @Column(name = "primary_time")
     public long getPrimaryTime() {
         return primaryTime;

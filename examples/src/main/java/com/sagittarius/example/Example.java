@@ -99,16 +99,16 @@ public class Example {
         //insert(writer);
         //writeTest(writer, Integer.parseInt(args[0]), Integer.parseInt(args[1]));
         //batchWriteTest(writer, Integer.parseInt(args[0]), Integer.parseInt(args[1]), Integer.parseInt(args[2]));
-//        batchWriteTest(writer, 1, 1, 1000);
+//        batchWriteTest(writer, 20, 10, 3000);
         //insertLoop(writer);
 
         //read(reader);
         //readbyRange(reader);
         //readFuzzy(reader);
 //        long st = System.currentTimeMillis();
-        floatRead(reader);
-        System.out.println(cluster.getClusterName());
-        cluster.getMetadata().getAllHosts().size();
+//        floatRead(reader);
+//        System.out.println(cluster.getClusterName());
+//        cluster.getMetadata().getAllHosts().size();
 //        System.out.println(TimeUtil.date2String(1493568000123L));
 //        System.out.println(TimeUtil.string2Date("2017-05-01 00:00:00.123"));
 //        test(reader);
@@ -118,6 +118,7 @@ public class Example {
 //        batchWriteBigData2(writer, threads, batchSize, directory);
 
 //        deleteTest(reader, writer);
+        floatRead(reader);
         exit(0);
 
     }
@@ -287,20 +288,26 @@ public class Example {
 
     private static void floatRead(Reader reader) throws ParseException {
         ArrayList<String> hosts = new ArrayList<>();
-        hosts.add("130667");
-        ArrayList<String> metrics = new ArrayList<>();
-        metrics.add("PP_0001_00_16825352");
-        long start = TimeUtil.string2Date("2017-05-01 23:00:00");
-        System.out.println(start);
-        long end = TimeUtil.string2Date("2017-05-02 00:00:00");
-        System.out.println(end);
-        Map<String, Map<String, List<FloatPoint>>> result = null;
+        hosts.add("1001141794");
+        hosts.add("1001132073");
+        ArrayList<String> floatMetrics = new ArrayList<>();
+        floatMetrics.add("J_0001_00_112");
+        floatMetrics.add("J_0001_00_84");
         try {
-            result = reader.getFloatRange(hosts, metrics, start, end, false);
-        } catch (Exception e) {
+            long start = TimeUtil.string2Date("2017-08-05 20:00:00");
+            long end = TimeUtil.string2Date("2017-08-06 11:00:00");
+
+            Map<String, Map<String, List<FloatPoint>>> wf = reader.getFloatRange(hosts, floatMetrics, start, end, false);
+            for (String d1: wf.keySet()){
+                System.out.println("\n#" + d1);
+                for (String d2: wf.get(d1).keySet()){
+                    for (FloatPoint a: wf.get(d1).get(d2))
+                        System.out.println(TimeUtil.date2String(a.getPrimaryTime()) + " " + a.getMetric() + " " + a.getValue());
+                }
+            }
+        } catch (Exception e){
             e.printStackTrace();
         }
-        System.out.println(result.get("130667").get("PP_0001_00_16825352").get(0).getPrimaryTime());
     }
 
     private static void batchTest1(SagittariusClient client, int threads, int runTime) {
@@ -382,7 +389,7 @@ public class Example {
 
         while (true) {
             try {
-                Thread.sleep(180000);
+                Thread.sleep(60000);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

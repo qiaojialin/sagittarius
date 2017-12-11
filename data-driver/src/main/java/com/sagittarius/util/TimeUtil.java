@@ -1,6 +1,7 @@
 package com.sagittarius.util;
 
 import com.sagittarius.bean.common.TimePartition;
+import jnr.ffi.Struct;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -27,6 +28,22 @@ public class TimeUtil {
                 return time.getYear() + "W" + time.get(ALIGNED_WEEK_OF_YEAR);
             case MONTH:
                 return time.getYear() + "M" + time.getMonthValue();
+            case YEAR:
+                return time.getYear() + "";
+            default:
+                return null;
+        }
+    }
+
+    public static String generateTimeSlice2(long timeMillis, TimePartition timePartition) {
+        LocalDateTime time = LocalDateTime.ofEpochSecond(timeMillis/1000, 0, zoneOffset);
+        switch (timePartition) {
+            case DAY:
+                return time.getYear() + "D" + String.format("%03d", time.getDayOfYear());
+            case WEEK:
+                return time.getYear() + "W" + String.format("%03d", time.get(ALIGNED_WEEK_OF_YEAR));
+            case MONTH:
+                return time.getYear() + "M" + String.format("%03d", time.getMonthValue());
             case YEAR:
                 return time.getYear() + "";
             default:
