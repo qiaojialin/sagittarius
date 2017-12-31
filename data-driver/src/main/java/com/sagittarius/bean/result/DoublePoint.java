@@ -3,6 +3,11 @@ package com.sagittarius.bean.result;
 public class DoublePoint extends AbstractPoint {
     private double value;
 
+    public DoublePoint(){
+        super();
+    }
+
+
     public DoublePoint(String metric, long primaryTime, long secondaryTime, double value) {
         super(metric, primaryTime, secondaryTime);
         this.value = value;

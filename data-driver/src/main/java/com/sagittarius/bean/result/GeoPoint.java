@@ -4,6 +4,11 @@ public class GeoPoint extends AbstractPoint {
     private float latitude;
     private float longitude;
 
+    public GeoPoint(){
+        super();
+    }
+
+
     public GeoPoint(String metric, long primaryTime, long secondaryTime, float latitude, float longitude) {
         super(metric, primaryTime, secondaryTime);
         this.latitude = latitude;

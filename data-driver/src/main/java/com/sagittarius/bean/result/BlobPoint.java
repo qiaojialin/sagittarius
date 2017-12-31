@@ -5,6 +5,10 @@ import java.nio.ByteBuffer;
 public class BlobPoint extends AbstractPoint {
     private ByteBuffer value;
 
+    public BlobPoint(){
+        super();
+    }
+
     public BlobPoint(String metric, long primaryTime, long secondaryTime, ByteBuffer value) {
         super(metric, primaryTime, secondaryTime);
         this.value = value;

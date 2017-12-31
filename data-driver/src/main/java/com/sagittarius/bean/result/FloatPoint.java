@@ -3,6 +3,11 @@ package com.sagittarius.bean.result;
 public class FloatPoint extends AbstractPoint {
     private float value;
 
+    public FloatPoint(){
+        super();
+    }
+
+
     public FloatPoint(String metric, long primaryTime, long secondaryTime, float value) {
         super(metric, primaryTime, secondaryTime);
         this.value = value;

@@ -15,6 +15,9 @@ public class BatchPoint {
     private Object latitude;
     private Object longitude;
 
+    public BatchPoint(){
+    }
+
     public BatchPoint(String host, String metric, long primaryTime, long sencondaryTime, ValueType valueType, Object value){
         this.host = host;
         this.metric = metric;

@@ -3,6 +3,11 @@ package com.sagittarius.bean.result;
 public class IntPoint extends AbstractPoint {
     private int value;
 
+    public IntPoint(){
+        super();
+    }
+
+
     public IntPoint(String metric, long primaryTime, long secondaryTime, int value) {
         super(metric, primaryTime, secondaryTime);
         this.value = value;

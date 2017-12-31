@@ -3,11 +3,14 @@ package com.sagittarius.bean.result;
 public class BooleanPoint extends AbstractPoint {
     private boolean value;
 
+    public BooleanPoint(){
+        super();
+    }
+
     public BooleanPoint(String metric, long primaryTime, long secondaryTime, boolean value) {
         super(metric, primaryTime, secondaryTime);
         this.value = value;
     }
-
     public boolean getValue() {
         return value;
     }

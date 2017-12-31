@@ -8,6 +8,9 @@ public abstract class AbstractPoint {
     private long primaryTime;
     private long secondaryTime;
 
+    public AbstractPoint(){
+    }
+
     public AbstractPoint(String metric, long primaryTime, long secondaryTime) {
         this.metric = metric;
         this.primaryTime = primaryTime;
