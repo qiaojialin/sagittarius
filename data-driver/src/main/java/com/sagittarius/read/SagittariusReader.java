@@ -48,6 +48,7 @@ public class SagittariusReader implements Reader {
     private MappingManager mappingManager;
 //    private JavaSparkContext sparkContext;
     private Cache<HostMetricPair, TypePartitionPair> cache;
+    private static long SECOND_TO_MICROSECOND = 1000000L;
 //    private PreparedStatement aggIntStatement;
 //    private PreparedStatement aggLongStatement;
 //    private PreparedStatement aggFloatStatement;
@@ -992,8 +993,8 @@ public class SagittariusReader implements Reader {
         List<HostMetric> hostMetrics = getHostMetrics(hosts, metrics);
         Map<String, Map<String, Set<String>>> timeSliceHostMetric = getTimeSlicePartedHostMetrics(hostMetrics, startTime);
         List<String> querys = new ArrayList<>();
-        long startTimeSecond = startTime / 1000;
-        long endTimeSecond = endTime / 1000;
+        long startTimeSecond = startTime / SECOND_TO_MICROSECOND;
+        long endTimeSecond = endTime / SECOND_TO_MICROSECOND;
 
         for (Map.Entry<String, Map<String, Set<String>>> entry : timeSliceHostMetric.entrySet()) {
             String startTimeSlice = entry.getKey();
@@ -1054,25 +1055,25 @@ public class SagittariusReader implements Reader {
             for (int i = 1; i < totalDates.size() - 1; ++i) {
                 //the last datetime may be in the same timepartition with the end datetime, so it should be processed separately.
                 if(desc){
-                    String query = String.format(QueryStatement.WHOLE_PARTITION_QUERY_STATEMENT_DESC, table, hostsString, metricsString, TimeUtil.generateTimeSlice(totalDates.get(i).toEpochSecond(TimeUtil.zoneOffset) * 1000, timePartition));
+                    String query = String.format(QueryStatement.WHOLE_PARTITION_QUERY_STATEMENT_DESC, table, hostsString, metricsString, TimeUtil.generateTimeSlice(totalDates.get(i).toEpochSecond(TimeUtil.zoneOffset) * SECOND_TO_MICROSECOND, timePartition));
                     querys.add(query);
                 }
                 else {
-                    String query = String.format(QueryStatement.WHOLE_PARTITION_QUERY_STATEMENT, table, hostsString, metricsString, TimeUtil.generateTimeSlice(totalDates.get(i).toEpochSecond(TimeUtil.zoneOffset) * 1000, timePartition));
+                    String query = String.format(QueryStatement.WHOLE_PARTITION_QUERY_STATEMENT, table, hostsString, metricsString, TimeUtil.generateTimeSlice(totalDates.get(i).toEpochSecond(TimeUtil.zoneOffset) * SECOND_TO_MICROSECOND, timePartition));
                     querys.add(query);
                 }
             }
             LocalDateTime last = totalDates.get(totalDates.size() - 1);
-            long lastMS = last.toEpochSecond(TimeUtil.zoneOffset)*1000;
-            String lastTimeSlice = TimeUtil.generateTimeSlice(lastMS, timePartition);
+            long lastMicroSecond = last.toEpochSecond(TimeUtil.zoneOffset) * SECOND_TO_MICROSECOND;
+            String lastTimeSlice = TimeUtil.generateTimeSlice(lastMicroSecond, timePartition);
             boolean ifRepeat = lastTimeSlice.equals(endTimeSlice) || lastTimeSlice.equals(startTimeSlice);
             if (!ifRepeat) {
                 if(desc){
-                    String query = String.format(QueryStatement.WHOLE_PARTITION_QUERY_STATEMENT_DESC, table, hostsString, metricsString, TimeUtil.generateTimeSlice(last.toEpochSecond(TimeUtil.zoneOffset) * 1000, timePartition));
+                    String query = String.format(QueryStatement.WHOLE_PARTITION_QUERY_STATEMENT_DESC, table, hostsString, metricsString, TimeUtil.generateTimeSlice(last.toEpochSecond(TimeUtil.zoneOffset) * SECOND_TO_MICROSECOND, timePartition));
                     querys.add(query);
                 }
                 else {
-                    String query = String.format(QueryStatement.WHOLE_PARTITION_QUERY_STATEMENT, table, hostsString, metricsString, TimeUtil.generateTimeSlice(last.toEpochSecond(TimeUtil.zoneOffset) * 1000, timePartition));
+                    String query = String.format(QueryStatement.WHOLE_PARTITION_QUERY_STATEMENT, table, hostsString, metricsString, TimeUtil.generateTimeSlice(last.toEpochSecond(TimeUtil.zoneOffset) * SECOND_TO_MICROSECOND, timePartition));
                     querys.add(query);
                 }
             }
@@ -1417,8 +1418,8 @@ public class SagittariusReader implements Reader {
         Map<String, Map<String, Set<String>>> timeSliceHostMetric = getTimeSlicePartedHostMetrics(hostMetrics, startTime);
 
         List<String> predicates = new ArrayList<>();
-        long startTimeSecond = startTime / 1000;
-        long endTimeSecond = endTime / 1000;
+        long startTimeSecond = startTime / SECOND_TO_MICROSECOND;
+        long endTimeSecond = endTime / SECOND_TO_MICROSECOND;
 
         for (Map.Entry<String, Map<String, Set<String>>> entry : timeSliceHostMetric.entrySet()) {
             String startTimeSlice = entry.getKey();
@@ -1482,25 +1483,25 @@ public class SagittariusReader implements Reader {
             for (int i = 1; i < totalDates.size() - 1; ++i) {
                 //the last datetime may be in the same timepartition with the end datetime, so it should be processed separately.
                 if(desc){
-                    String predicate = String.format(QueryStatement.WHOLE_PARTITION_WHERE_STATEMENT_DESC, hostsString, metricsString, TimeUtil.generateTimeSlice(totalDates.get(i).toEpochSecond(TimeUtil.zoneOffset) * 1000, timePartition), filter);
+                    String predicate = String.format(QueryStatement.WHOLE_PARTITION_WHERE_STATEMENT_DESC, hostsString, metricsString, TimeUtil.generateTimeSlice(totalDates.get(i).toEpochSecond(TimeUtil.zoneOffset) * SECOND_TO_MICROSECOND, timePartition), filter);
                     predicates.add(predicate);
                 }
                 else {
-                    String predicate = String.format(QueryStatement.WHOLE_PARTITION_WHERE_STATEMENT, hostsString, metricsString, TimeUtil.generateTimeSlice(totalDates.get(i).toEpochSecond(TimeUtil.zoneOffset) * 1000, timePartition), filter);
+                    String predicate = String.format(QueryStatement.WHOLE_PARTITION_WHERE_STATEMENT, hostsString, metricsString, TimeUtil.generateTimeSlice(totalDates.get(i).toEpochSecond(TimeUtil.zoneOffset) * SECOND_TO_MICROSECOND, timePartition), filter);
                     predicates.add(predicate);
                 }
             }
             LocalDateTime last = totalDates.get(totalDates.size() - 1);
-            long lastMS = last.toEpochSecond(TimeUtil.zoneOffset)*1000;
+            long lastMS = last.toEpochSecond(TimeUtil.zoneOffset)*SECOND_TO_MICROSECOND;
             String lastTimeSlice = TimeUtil.generateTimeSlice(lastMS, timePartition);
             boolean ifRepeat = lastTimeSlice.equals(endTimeSlice) || lastTimeSlice.equals(startTimeSlice);
             if (!ifRepeat) {
                 if(desc){
-                    String predicate = String.format(QueryStatement.WHOLE_PARTITION_WHERE_STATEMENT_DESC, hostsString, metricsString, TimeUtil.generateTimeSlice(last.toEpochSecond(TimeUtil.zoneOffset) * 1000, timePartition), filter);
+                    String predicate = String.format(QueryStatement.WHOLE_PARTITION_WHERE_STATEMENT_DESC, hostsString, metricsString, TimeUtil.generateTimeSlice(last.toEpochSecond(TimeUtil.zoneOffset) * SECOND_TO_MICROSECOND, timePartition), filter);
                     predicates.add(predicate);
                 }
                 else {
-                    String predicate = String.format(QueryStatement.WHOLE_PARTITION_WHERE_STATEMENT, hostsString, metricsString, TimeUtil.generateTimeSlice(last.toEpochSecond(TimeUtil.zoneOffset) * 1000, timePartition), filter);
+                    String predicate = String.format(QueryStatement.WHOLE_PARTITION_WHERE_STATEMENT, hostsString, metricsString, TimeUtil.generateTimeSlice(last.toEpochSecond(TimeUtil.zoneOffset) * SECOND_TO_MICROSECOND, timePartition), filter);
                     predicates.add(predicate);
                 }
             }
@@ -1878,39 +1879,39 @@ public class SagittariusReader implements Reader {
     private List<String> getTimeSlices(long startTime, long endTime, TimePartition timePartition){
         ArrayList<String> timeSlices = new ArrayList<>();
 
-        LocalDateTime start = LocalDateTime.ofEpochSecond(startTime/1000, 0, TimeUtil.zoneOffset);
-        LocalDateTime end = LocalDateTime.ofEpochSecond(endTime/1000, 0, TimeUtil.zoneOffset);
+        LocalDateTime start = LocalDateTime.ofEpochSecond(startTime/SECOND_TO_MICROSECOND, 0, TimeUtil.zoneOffset);
+        LocalDateTime end = LocalDateTime.ofEpochSecond(endTime/SECOND_TO_MICROSECOND, 0, TimeUtil.zoneOffset);
         switch (timePartition){
             case DAY:{
                 while (start.isBefore(end)){
-                    timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * 1000, TimePartition.DAY));
+                    timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * SECOND_TO_MICROSECOND, TimePartition.DAY));
                     start = start.plusDays(1);
                 }
-                timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * 1000, TimePartition.DAY));
+                timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * SECOND_TO_MICROSECOND, TimePartition.DAY));
                 break;
             }
             case WEEK:{
                 while (start.isBefore(end)){
-                    timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * 1000, TimePartition.WEEK));
+                    timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * SECOND_TO_MICROSECOND, TimePartition.WEEK));
                     start = start.plusWeeks(1);
                 }
-                timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * 1000, TimePartition.WEEK));
+                timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * SECOND_TO_MICROSECOND, TimePartition.WEEK));
                 break;
             }
             case MONTH:{
                 while (start.isBefore(end)){
-                    timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * 1000, TimePartition.MONTH));
+                    timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * SECOND_TO_MICROSECOND, TimePartition.MONTH));
                     start= start.plusMonths(1);
                 }
-                timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * 1000, TimePartition.MONTH));
+                timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * SECOND_TO_MICROSECOND, TimePartition.MONTH));
                 break;
             }
             case YEAR:{
                 while (start.isBefore(end)){
-                    timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * 1000, TimePartition.YEAR));
+                    timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * SECOND_TO_MICROSECOND, TimePartition.YEAR));
                     start = start.plusYears(1);
                 }
-                timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * 1000, TimePartition.YEAR));
+                timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * SECOND_TO_MICROSECOND, TimePartition.YEAR));
                 break;
             }
         }

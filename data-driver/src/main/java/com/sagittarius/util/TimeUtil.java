@@ -20,7 +20,7 @@ public class TimeUtil {
     public static final SimpleDateFormat dateFormat2 = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
 
     public static String generateTimeSlice(long timeMillis, TimePartition timePartition) {
-        LocalDateTime time = LocalDateTime.ofEpochSecond(timeMillis/1000, 0, zoneOffset);
+        LocalDateTime time = LocalDateTime.ofEpochSecond(timeMillis/1000000, 0, zoneOffset);
         switch (timePartition) {
             case DAY:
                 return time.getYear() + "D" + time.getDayOfYear();
@@ -51,12 +51,12 @@ public class TimeUtil {
         }
     }
 
-    public static String date2String(long date, SimpleDateFormat sdf) {
-        return sdf.format(new Date(date));
-    }
+//    public static String date2String(long date, SimpleDateFormat sdf) {
+//        return sdf.format(new Date(date));
+//    }
     public static String date2String(long time) {
         if(time < 0) return "";
-        return LocalDateTime.ofEpochSecond(time/1000, (int)(time%1000*1000), zoneOffset).toString();
+        return LocalDateTime.ofEpochSecond(time/1000000, (int)(time%1000000*1000), zoneOffset).toString();
     }
 
 //    public static long string2Date(String time, SimpleDateFormat sdf) throws ParseException, NumberFormatException {
@@ -79,7 +79,7 @@ public class TimeUtil {
             formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
         }
         else{
-            formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+            formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS");
         }
         long primaryTime = java.sql.Timestamp.valueOf(LocalDateTime.parse(time, formatter)).getTime();
         return primaryTime;

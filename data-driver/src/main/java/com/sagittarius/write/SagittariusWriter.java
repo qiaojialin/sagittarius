@@ -31,6 +31,7 @@ public class SagittariusWriter implements Writer {
     private RecordAccumulator accumulator;
     private Sender sender;
     private boolean autoBatch;
+    private static long SECOND_TO_MICROSECOND = 1000000L;
     private PreparedStatement preIntStatement;
     private PreparedStatement preLongStatement;
     private PreparedStatement preFloatStatement;
@@ -868,34 +869,34 @@ public class SagittariusWriter implements Writer {
     private List<String> getTimeSlices(long startTime, long endTime, TimePartition timePartition){
         ArrayList<String> timeSlices = new ArrayList<>();
 
-        LocalDateTime start = LocalDateTime.ofEpochSecond(startTime/1000, 0, TimeUtil.zoneOffset);
-        LocalDateTime end = LocalDateTime.ofEpochSecond(endTime/1000, 0, TimeUtil.zoneOffset);
+        LocalDateTime start = LocalDateTime.ofEpochSecond(startTime/SECOND_TO_MICROSECOND, 0, TimeUtil.zoneOffset);
+        LocalDateTime end = LocalDateTime.ofEpochSecond(endTime/SECOND_TO_MICROSECOND, 0, TimeUtil.zoneOffset);
         switch (timePartition){
             case DAY:{
 
                 while (start.isBefore(end)){
-                    timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * 1000, TimePartition.DAY));
+                    timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * SECOND_TO_MICROSECOND, TimePartition.DAY));
                     start = start.plusDays(1);
                 }
                 break;
             }
             case WEEK:{
                 while (start.isBefore(end)){
-                    timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * 1000, TimePartition.WEEK));
+                    timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * SECOND_TO_MICROSECOND, TimePartition.WEEK));
                     start = start.plusWeeks(1);
                 }
                 break;
             }
             case MONTH:{
                 while (start.isBefore(end)){
-                    timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * 1000, TimePartition.MONTH));
+                    timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * SECOND_TO_MICROSECOND, TimePartition.MONTH));
                     start= start.plusMonths(1);
                 }
                 break;
             }
             case YEAR:{
                 while (start.isBefore(end)){
-                    timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * 1000, TimePartition.YEAR));
+                    timeSlices.add(TimeUtil.generateTimeSlice(start.toEpochSecond(TimeUtil.zoneOffset) * SECOND_TO_MICROSECOND, TimePartition.YEAR));
                     start = start.plusYears(1);
                 }
                 break;
