@@ -15,12 +15,13 @@ import java.sql.Timestamp;
 import static java.time.temporal.ChronoField.ALIGNED_WEEK_OF_YEAR;
 
 public class TimeUtil {
+    private static long SECOND_TO_MICROSECOND = 1000L;
     public static final ZoneOffset zoneOffset = ZoneOffset.ofHours(8);
     public static final SimpleDateFormat dateFormat1 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
     public static final SimpleDateFormat dateFormat2 = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
 
     public static String generateTimeSlice(long timeMillis, TimePartition timePartition) {
-        LocalDateTime time = LocalDateTime.ofEpochSecond(timeMillis/1000000, 0, zoneOffset);
+        LocalDateTime time = LocalDateTime.ofEpochSecond(timeMillis/SECOND_TO_MICROSECOND, 0, zoneOffset);
         switch (timePartition) {
             case DAY:
                 return time.getYear() + "D" + time.getDayOfYear();
@@ -36,7 +37,7 @@ public class TimeUtil {
     }
 
     public static String generateTimeSlice2(long timeMillis, TimePartition timePartition) {
-        LocalDateTime time = LocalDateTime.ofEpochSecond(timeMillis/1000, 0, zoneOffset);
+        LocalDateTime time = LocalDateTime.ofEpochSecond(timeMillis/SECOND_TO_MICROSECOND, 0, zoneOffset);
         switch (timePartition) {
             case DAY:
                 return time.getYear() + "D" + String.format("%03d", time.getDayOfYear());
@@ -56,7 +57,7 @@ public class TimeUtil {
 //    }
     public static String date2String(long time) {
         if(time < 0) return "";
-        return LocalDateTime.ofEpochSecond(time/1000000, (int)(time%1000000*1000), zoneOffset).toString();
+        return LocalDateTime.ofEpochSecond(time/SECOND_TO_MICROSECOND, (int)(time%SECOND_TO_MICROSECOND*1000), zoneOffset).toString();
     }
 
 //    public static long string2Date(String time, SimpleDateFormat sdf) throws ParseException, NumberFormatException {

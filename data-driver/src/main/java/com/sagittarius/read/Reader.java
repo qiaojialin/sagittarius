@@ -119,6 +119,7 @@ public interface Reader {
      * @return a IntPoint
      */
     IntPoint getFuzzyIntPoint(String host, String metric, long time, Shift shift) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
+    IntPoint getFuzzyIntPoint(String host, String metric, long time, Shift shift, long limit) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
     /**
      * given host and metric , get a LongPoint at the query time, if there isn't point at that time, will search point according to shift option.
@@ -135,6 +136,7 @@ public interface Reader {
      * @return a LongPoint
      */
     LongPoint getFuzzyLongPoint(String host, String metric, long time, Shift shift) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
+    LongPoint getFuzzyLongPoint(String host, String metric, long time, Shift shift, long limit) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
     /**
      * given host and metric , get a FloatPoint at the query time, if there isn't point at that time, will search point according to shift option.
@@ -151,6 +153,7 @@ public interface Reader {
      * @return a FloatPoint
      */
     FloatPoint getFuzzyFloatPoint(String host, String metric, long time, Shift shift) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
+    FloatPoint getFuzzyFloatPoint(String host, String metric, long time, Shift shift, long limit) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
     /**
      * given host and metric , get a DoublePoint at the query time, if there isn't point at that time, will search point according to shift option.
@@ -167,6 +170,7 @@ public interface Reader {
      * @return a DoublePoint
      */
     DoublePoint getFuzzyDoublePoint(String host, String metric, long time, Shift shift) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
+    DoublePoint getFuzzyDoublePoint(String host, String metric, long time, Shift shift, long limit) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
     /**
      * given host and metric , get a BooleanPoint at the query time, if there isn't point at that time, will search point according to shift option.
@@ -183,6 +187,7 @@ public interface Reader {
      * @return a BooleanPoint
      */
     BooleanPoint getFuzzyBooleanPoint(String host, String metric, long time, Shift shift) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
+    BooleanPoint getFuzzyBooleanPoint(String host, String metric, long time, Shift shift, long limit) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
     /**
      * given host and metric , get a StringPoint at the query time, if there isn't point at that time, will search point according to shift option.
@@ -199,6 +204,7 @@ public interface Reader {
      * @return a StringPoint
      */
     StringPoint getFuzzyStringPoint(String host, String metric, long time, Shift shift) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
+    StringPoint getFuzzyStringPoint(String host, String metric, long time, Shift shift, long limit) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
     /**
      * given host and metric , get a GeoPoint at the query time, if there isn't point at that time, will search point according to shift option.
@@ -215,6 +221,7 @@ public interface Reader {
      * @return a GeoPoint
      */
     GeoPoint getFuzzyGeoPoint(String host, String metric, long time, Shift shift) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
+    GeoPoint getFuzzyGeoPoint(String host, String metric, long time, Shift shift, long limit) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
     /**
      * given hosts list and metrics list,each host is associated with the same list of metrics , get IntPoints at the latest time.

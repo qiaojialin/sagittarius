@@ -48,7 +48,9 @@ public class SagittariusReader implements Reader {
     private MappingManager mappingManager;
 //    private JavaSparkContext sparkContext;
     private Cache<HostMetricPair, TypePartitionPair> cache;
-    private static long SECOND_TO_MICROSECOND = 1000000L;
+    private static long SECOND_TO_MICROSECOND = 1000L;
+    private static long SECONDS_OF_DAY = 86400;
+    private static long SLICES_LIMIT = 30;
 //    private PreparedStatement aggIntStatement;
 //    private PreparedStatement aggLongStatement;
 //    private PreparedStatement aggFloatStatement;
@@ -474,6 +476,7 @@ public class SagittariusReader implements Reader {
     }
 
     private List<ResultSet> getPointResultSet(String host, String metric, long time, ValueType valueType, Shift shift) {
+
         String table = getTableByType(valueType);
         List<ResultSet> resultSets = new ArrayList<>();
 
@@ -486,42 +489,150 @@ public class SagittariusReader implements Reader {
         }
 
         Statement statement;
-        String timeSlice = TimeUtil.generateTimeSlice(time, hostMetrics.get(0).getTimePartition());
+        String timeSlice;
 
         if (shift == Shift.NEAREST) {
-            statement = new SimpleStatement(String.format(QueryStatement.POINT_BEFORE_SHIFT_QUERY_STATEMENT, table, host, metric, timeSlice, time));
-            ResultSet setBefore = session.execute(statement);
-            if (!setBefore.isExhausted())
-                resultSets.add(setBefore);
-            statement = new SimpleStatement(String.format(QueryStatement.POINT_AFTER_SHIFT_QUERY_STATEMENT, table, host, metric, timeSlice, time));
-            ResultSet setAfter = session.execute(statement);
-            if (!setAfter.isExhausted())
-                resultSets.add(setAfter);
+            long tmp = 0;
+            boolean flag = false;
+            while (tmp <= SLICES_LIMIT){
+                timeSlice = TimeUtil.generateTimeSlice(time - tmp * SECONDS_OF_DAY * SECOND_TO_MICROSECOND, hostMetrics.get(0).getTimePartition());
+                statement = new SimpleStatement(String.format(QueryStatement.POINT_BEFORE_SHIFT_QUERY_STATEMENT, table, host, metric, timeSlice, time));
+                ResultSet setBefore = session.execute(statement);
+                if (!setBefore.isExhausted()){
+                    resultSets.add(setBefore);
+                    flag = true;
+                }
+
+                timeSlice = TimeUtil.generateTimeSlice(time + tmp * SECONDS_OF_DAY * SECOND_TO_MICROSECOND, hostMetrics.get(0).getTimePartition());
+                statement = new SimpleStatement(String.format(QueryStatement.POINT_AFTER_SHIFT_QUERY_STATEMENT, table, host, metric, timeSlice, time));
+                ResultSet setAfter = session.execute(statement);
+                if (!setAfter.isExhausted()){
+                    resultSets.add(setAfter);
+                    flag = true;
+                }
+
+                if(flag){
+                    break;
+                }
+
+                tmp++;
+            }
             return resultSets;
         }
 
         String queryStatement = null;
+        long factor = 0;
         switch (shift) {
             case BEFORE:
                 queryStatement = QueryStatement.POINT_BEFORE_SHIFT_QUERY_STATEMENT;
+                factor = -1;
                 break;
             case AFTER:
                 queryStatement = QueryStatement.POINT_AFTER_SHIFT_QUERY_STATEMENT;
+                factor = 1;
                 break;
         }
 
-        statement = new SimpleStatement(String.format(queryStatement, table, host, metric, timeSlice, time));
-        ResultSet set = session.execute(statement);
-        if (!set.isExhausted())
-            resultSets.add(set);
+        long tmp = 0;
+        while (tmp <= SLICES_LIMIT){
+            timeSlice = TimeUtil.generateTimeSlice(time + factor * tmp * SECONDS_OF_DAY * SECOND_TO_MICROSECOND, hostMetrics.get(0).getTimePartition());
+            statement = new SimpleStatement(String.format(queryStatement, table, host, metric, timeSlice, time));
+            ResultSet set = session.execute(statement);
+            if (!set.isExhausted()){
+                resultSets.add(set);
+                break;
+            }
+            tmp++;
+        }
+
+        return resultSets;
+    }
+
+    private List<ResultSet> getPointResultSet(String host, String metric, long time, ValueType valueType, Shift shift, long limit) {
+
+        String table = getTableByType(valueType);
+        List<ResultSet> resultSets = new ArrayList<>();
+        if(limit <= 0){
+            return resultSets;
+        }
+
+        List<String> hosts = new ArrayList<>(), metrics = new ArrayList<>();
+        hosts.add(host);
+        metrics.add(metric);
+        List<HostMetric> hostMetrics = getHostMetrics(hosts, metrics);
+        if (hostMetrics.size() == 0) {
+            return resultSets;
+        }
+
+        Statement statement;
+        String timeSlice;
+
+        if (shift == Shift.NEAREST) {
+            long tmp = 0;
+            boolean flag = false;
+            while (tmp <= limit){
+                timeSlice = TimeUtil.generateTimeSlice(time - tmp * SECONDS_OF_DAY * SECOND_TO_MICROSECOND, hostMetrics.get(0).getTimePartition());
+                statement = new SimpleStatement(String.format(QueryStatement.POINT_BEFORE_SHIFT_QUERY_STATEMENT, table, host, metric, timeSlice, time));
+                ResultSet setBefore = session.execute(statement);
+                if (!setBefore.isExhausted()){
+                    resultSets.add(setBefore);
+                    flag = true;
+                }
+
+                timeSlice = TimeUtil.generateTimeSlice(time + tmp * SECONDS_OF_DAY * SECOND_TO_MICROSECOND, hostMetrics.get(0).getTimePartition());
+                statement = new SimpleStatement(String.format(QueryStatement.POINT_AFTER_SHIFT_QUERY_STATEMENT, table, host, metric, timeSlice, time));
+                ResultSet setAfter = session.execute(statement);
+                if (!setAfter.isExhausted()){
+                    resultSets.add(setAfter);
+                    flag = true;
+                }
+
+                if(flag){
+                    break;
+                }
+
+                tmp++;
+            }
+            return resultSets;
+        }
+
+        String queryStatement = null;
+        long factor = 0;
+        switch (shift) {
+            case BEFORE:
+                queryStatement = QueryStatement.POINT_BEFORE_SHIFT_QUERY_STATEMENT;
+                factor = -1;
+                break;
+            case AFTER:
+                queryStatement = QueryStatement.POINT_AFTER_SHIFT_QUERY_STATEMENT;
+                factor = 1;
+                break;
+        }
+
+        long tmp = 0;
+        while (tmp <= limit){
+            timeSlice = TimeUtil.generateTimeSlice(time + factor * tmp * SECONDS_OF_DAY * SECOND_TO_MICROSECOND, hostMetrics.get(0).getTimePartition());
+            statement = new SimpleStatement(String.format(queryStatement, table, host, metric, timeSlice, time));
+            ResultSet set = session.execute(statement);
+            if (!set.isExhausted()){
+                resultSets.add(set);
+                break;
+            }
+            tmp++;
+        }
 
         return resultSets;
     }
 
     @Override
-    public IntPoint getFuzzyIntPoint(String hosts, String metrics, long time, Shift shift) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+    public IntPoint getFuzzyIntPoint(String host, String metric, long time, Shift shift) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        return getFuzzyIntPoint(host, metric, time, shift, 30);
+    }
+
+    @Override
+    public IntPoint getFuzzyIntPoint(String hosts, String metrics, long time, Shift shift, long limit) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         try {
-            List<ResultSet> resultSets = getPointResultSet(hosts, metrics, time, ValueType.INT, shift);
+            List<ResultSet> resultSets = getPointResultSet(hosts, metrics, time, ValueType.INT, shift, limit);
             Mapper<IntData> mapper = mappingManager.mapper(IntData.class);
             if (resultSets.size() == 0) {
                 return null;
@@ -546,9 +657,14 @@ public class SagittariusReader implements Reader {
     }
 
     @Override
-    public LongPoint getFuzzyLongPoint(String hosts, String metrics, long time, Shift shift) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+    public LongPoint getFuzzyLongPoint(String host, String metric, long time, Shift shift) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        return getFuzzyLongPoint(host, metric, time, shift, 30);
+    }
+
+    @Override
+    public LongPoint getFuzzyLongPoint(String hosts, String metrics, long time, Shift shift, long limit) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         try {
-            List<ResultSet> resultSets = getPointResultSet(hosts, metrics, time, ValueType.LONG, shift);
+            List<ResultSet> resultSets = getPointResultSet(hosts, metrics, time, ValueType.LONG, shift, limit);
             Mapper<LongData> mapper = mappingManager.mapper(LongData.class);
             if (resultSets.size() == 0) {
                 return null;
@@ -573,9 +689,14 @@ public class SagittariusReader implements Reader {
     }
 
     @Override
-    public FloatPoint getFuzzyFloatPoint(String hosts, String metrics, long time, Shift shift) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+    public FloatPoint getFuzzyFloatPoint(String host, String metric, long time, Shift shift) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        return getFuzzyFloatPoint(host, metric, time, shift, 30);
+    }
+
+    @Override
+    public FloatPoint getFuzzyFloatPoint(String hosts, String metrics, long time, Shift shift, long limit) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         try {
-            List<ResultSet> resultSets = getPointResultSet(hosts, metrics, time, ValueType.FLOAT, shift);
+            List<ResultSet> resultSets = getPointResultSet(hosts, metrics, time, ValueType.FLOAT, shift, limit);
             Mapper<FloatData> mapper = mappingManager.mapper(FloatData.class);
             if (resultSets.size() == 0) {
                 return null;
@@ -600,9 +721,14 @@ public class SagittariusReader implements Reader {
     }
 
     @Override
-    public DoublePoint getFuzzyDoublePoint(String hosts, String metrics, long time, Shift shift) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+    public DoublePoint getFuzzyDoublePoint(String host, String metric, long time, Shift shift) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        return getFuzzyDoublePoint(host, metric, time, shift, 30);
+    }
+
+    @Override
+    public DoublePoint getFuzzyDoublePoint(String hosts, String metrics, long time, Shift shift, long limit) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         try {
-            List<ResultSet> resultSets = getPointResultSet(hosts, metrics, time, ValueType.DOUBLE, shift);
+            List<ResultSet> resultSets = getPointResultSet(hosts, metrics, time, ValueType.DOUBLE, shift, limit);
             Mapper<DoubleData> mapper = mappingManager.mapper(DoubleData.class);
             if (resultSets.size() == 0) {
                 return null;
@@ -627,9 +753,14 @@ public class SagittariusReader implements Reader {
     }
 
     @Override
-    public BooleanPoint getFuzzyBooleanPoint(String hosts, String metrics, long time, Shift shift) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+    public BooleanPoint getFuzzyBooleanPoint(String host, String metric, long time, Shift shift) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        return getFuzzyBooleanPoint(host, metric, time, shift, 30);
+    }
+
+    @Override
+    public BooleanPoint getFuzzyBooleanPoint(String hosts, String metrics, long time, Shift shift, long limit) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         try {
-            List<ResultSet> resultSets = getPointResultSet(hosts, metrics, time, ValueType.BOOLEAN, shift);
+            List<ResultSet> resultSets = getPointResultSet(hosts, metrics, time, ValueType.BOOLEAN, shift, limit);
             Mapper<BooleanData> mapper = mappingManager.mapper(BooleanData.class);
             if (resultSets.size() == 0) {
                 return null;
@@ -654,9 +785,14 @@ public class SagittariusReader implements Reader {
     }
 
     @Override
-    public StringPoint getFuzzyStringPoint(String hosts, String metrics, long time, Shift shift) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+    public StringPoint getFuzzyStringPoint(String host, String metric, long time, Shift shift) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        return getFuzzyStringPoint(host, metric, time, shift, 30);
+    }
+
+    @Override
+    public StringPoint getFuzzyStringPoint(String hosts, String metrics, long time, Shift shift, long limit) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         try {
-            List<ResultSet> resultSets = getPointResultSet(hosts, metrics, time, ValueType.STRING, shift);
+            List<ResultSet> resultSets = getPointResultSet(hosts, metrics, time, ValueType.STRING, shift, limit);
             Mapper<StringData> mapper = mappingManager.mapper(StringData.class);
             if (resultSets.size() == 0) {
                 return null;
@@ -681,9 +817,14 @@ public class SagittariusReader implements Reader {
     }
 
     @Override
-    public GeoPoint getFuzzyGeoPoint(String hosts, String metrics, long time, Shift shift) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+    public GeoPoint getFuzzyGeoPoint(String host, String metric, long time, Shift shift) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        return getFuzzyGeoPoint(host, metric, time, shift, 30);
+    }
+
+    @Override
+    public GeoPoint getFuzzyGeoPoint(String hosts, String metrics, long time, Shift shift, long limit) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         try {
-            List<ResultSet> resultSets = getPointResultSet(hosts, metrics, time, ValueType.GEO, shift);
+            List<ResultSet> resultSets = getPointResultSet(hosts, metrics, time, ValueType.GEO, shift, limit);
             Mapper<GeoData> mapper = mappingManager.mapper(GeoData.class);
             if (resultSets.size() == 0) {
                 return null;

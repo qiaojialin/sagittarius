@@ -31,7 +31,7 @@ public class SagittariusWriter implements Writer {
     private RecordAccumulator accumulator;
     private Sender sender;
     private boolean autoBatch;
-    private static long SECOND_TO_MICROSECOND = 1000000L;
+    private static long SECOND_TO_MICROSECOND = 1000L;
     private PreparedStatement preIntStatement;
     private PreparedStatement preLongStatement;
     private PreparedStatement preFloatStatement;
