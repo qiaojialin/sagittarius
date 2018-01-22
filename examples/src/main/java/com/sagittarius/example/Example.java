@@ -4,6 +4,12 @@ import com.datastax.driver.core.Cluster;
 //import com.datastax.spark.connector.japi.CassandraRow;
 //import com.datastax.spark.connector.japi.rdd.CassandraTableScanJavaRDD;
 //import com.datastax.spark.connector.util.Symbols;
+import com.datastax.driver.core.ResultSet;
+import com.datastax.driver.core.Row;
+import com.datastax.driver.core.Session;
+import com.datastax.driver.core.exceptions.WriteTimeoutException;
+import com.datastax.driver.mapping.Mapper;
+import com.datastax.driver.mapping.MappingManager;
 import com.sagittarius.bean.common.MetricMetadata;
 import com.sagittarius.bean.common.TimePartition;
 import com.sagittarius.bean.common.ValueType;
@@ -13,6 +19,7 @@ import com.sagittarius.bean.result.DoublePoint;
 import com.sagittarius.bean.result.FloatPoint;
 import com.sagittarius.bean.result.IntPoint;
 import com.sagittarius.bean.result.StringPoint;
+import com.sagittarius.bean.table.DoubleData;
 import com.sagittarius.core.SagittariusClient;
 import com.sagittarius.exceptions.NoHostAvailableException;
 import com.sagittarius.exceptions.QueryExecutionException;
@@ -46,8 +53,8 @@ public class Example {
     public static void main(String[] args) throws IOException, QueryExecutionException, TimeoutException, NoHostAvailableException, ParseException, SparkException, InterruptedException {
         CassandraConnection connection = CassandraConnection.getInstance();
         Cluster cluster = connection.getCluster();
-
-//        SparkConf sparkConf = new SparkConf();
+//        int threads = Integer.parseInt(args[0]);
+//        SparkConf sparkConf = new mvnSparkConf();
 ////        sparkConf.setMaster("spark://192.168.3.17:7077").setAppName("test");
 //        sparkConf.setMaster("spark://192.168.15.114:7077").setAppName("kmxtest");
 //        sparkConf.set("spark.ui.port", "4044");
@@ -58,28 +65,15 @@ public class Example {
 //        sparkConf.set("spark.cassandra.connection.port", "9042");
 //        sparkConf.set("spark.cassandra.connection.keep_alive_ms", "600000");
 //        sparkConf.set("spark.driver.host","192.168.15.123");
-
-        //sparkConf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
-        //sparkConf.set("spark.kryoserializer.buffer.max", "512m");
-        //sparkConf.set("spark.executor.extraJavaOptions", "-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/home/agittarius/");
-        //sparkConf.set("spark.scheduler.mode", "FAIR");
-        //sparkConf.set("spark.executor.cores", "4");
-//        sparkConf.set("spark.cores.max", "10");
-        //sparkConf.set("spark.driver.maxResultSize", "20g");
-        //sparkConf.set("spark.driver.memory", "20g");
 //        sparkConf.set("spark.executor.memory", "2g");
-        SagittariusClient client = new SagittariusClient(cluster, 10000);
-        SagittariusWriter writer = (SagittariusWriter) client.getWriter();
-        SagittariusReader reader = (SagittariusReader)client.getReader();
+//        SagittariusClient client = new SagittariusClient(cluster, 10000);
+//        SagittariusWriter writer = (SagittariusWriter) client.getWriter();
+//        SagittariusReader reader = (SagittariusReader)client.getReader();
 //        ReadTask task1 = new ReadTask(reader, time, "value >= 33 and value <= 34");
 //        ReadTask task2 = new ReadTask(reader, time, "value >= 34 and value <= 35");
 //        ReadTask task3 = new ReadTask(reader, time, "value >= 35 and value <= 36");
         //batchTest(writer, Integer.parseInt(args[0]), Integer.parseInt(args[1]));
         //batchTest1(client, Integer.parseInt(args[0]), Integer.parseInt(args[1]));
-        //insert(writer);
-        //task1.start();
-        //task2.start();
-        //task3.start();
         //test(client.getSparkContext());
         //floatRead(reader);
 //        for (int i = 0; i < 100; i++){
@@ -106,9 +100,9 @@ public class Example {
         //readbyRange(reader);
         //readFuzzy(reader);
 //        long st = System.currentTimeMillis();
-        floatRead(reader);
-        System.out.println(cluster.getClusterName());
-        cluster.getMetadata().getAllHosts().size();
+//        floatRead(reader);
+//        System.out.println(cluster.getClusterName());
+//        cluster.getMetadata().getAllHosts().size();
 //        System.out.println(TimeUtil.date2String(1493568000123L));
 //        System.out.println(TimeUtil.string2Date("2017-05-01 00:00:00.123"));
 //        test(reader);
@@ -118,8 +112,105 @@ public class Example {
 //        batchWriteBigData2(writer, threads, batchSize, directory);
 
 //        deleteTest(reader, writer);
+//        writeForReadTest(writer);
+        readForReadTest(cluster, 0);
         exit(0);
 
+    }
+
+    private static void readForReadTest(Cluster cluster, int threads) throws ParseException, NoHostAvailableException, QueryExecutionException, TimeoutException, InterruptedException {
+        Session session = cluster.connect("sagittarius");
+
+        ArrayList<String> querys = new ArrayList<>();
+        querys.add("select * from sagittarius.data_test where host in ('11') and time_slice in ('2017D244') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19')");
+        querys.add("select * from sagittarius.data_test where host in ('12','13') and time_slice in ('2017D244') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19')");
+        querys.add("select * from sagittarius.data_test where host in ('13','15','17') and time_slice in ('2017D244') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19')");
+        querys.add("select * from sagittarius.data_test where host in ('14','16','18','20') and time_slice in ('2017D244') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19')");
+        querys.add("select * from sagittarius.data_test where host in ('15','19','21','23','25') and time_slice in ('2017D244') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19')");
+        querys.add("select * from sagittarius.data_test where host in ('16','18','20','22','24','26') and time_slice in ('2017D244') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19')");
+        querys.add("select * from sagittarius.data_test where host in ('17','19','21','23','25','27','29') and time_slice in ('2017D244') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19')");
+        querys.add("select * from sagittarius.data_test where host in ('18','20','22','24','26','28','30','32') and time_slice in ('2017D244') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19')");
+        querys.add("select * from sagittarius.data_test where host in ('19','21','23','25','27','29','31','33','35') and time_slice in ('2017D244') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19')");
+        querys.add("select * from sagittarius.data_test where host in ('20','22','24','26','28','30','32','34','36','38') and time_slice in ('2017D244') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19')");
+        querys.add("select * from sagittarius.data_test where host in ('19','21','23','25','27','29','31','33','35','37','39') and time_slice in ('2017D244') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19')");
+        querys.add("select * from sagittarius.data_test where host in ('20','22','24','26','28','30','32','34','36','38','40','42') and time_slice in ('2017D244') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19')");
+        querys.add("select * from sagittarius.data_test where host in ('21','23','25','27','29','31','33','35','37','39','41','43','45') and time_slice in ('2017D244') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19')");
+        querys.add("select * from sagittarius.data_test where host in ('21','23','25','27','29','31','33','35','37','39','41','43','45','47') and time_slice in ('2017D244') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19')");
+        querys.add("select * from sagittarius.data_test where host in ('24','26','28','30','32','34','36','38','40','42','44','46','48','50','52') and time_slice in ('2017D244') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19')");
+        querys.add("select * from sagittarius.data_test where host in ('21','23','25','27','29','31','33','35','37','39','41','43','45','47','49','51') and time_slice in ('2017D244') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19')");
+        querys.add("select * from sagittarius.data_test where host in ('26','28','30','32','34','36','38','40','42','44','46','48','50','52','54','56','58') and time_slice in ('2017D244') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19')");
+        querys.add("select * from sagittarius.data_test where host in ('25','27','29','31','33','35','37','39','41','43','45','47','49','51','53','55','57','59') and time_slice in ('2017D244') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19')");
+        querys.add("select * from sagittarius.data_test where host in ('30','32','34','36','38','40','42','44','46','48','50','52','54','56','58','59','62','64','66') and time_slice in ('2017D244') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19')");
+        querys.add("select * from sagittarius.data_test where host in ('27','29','31','33','35','37','39','41','43','45','47','49','51','53','55','57','59','61','63','65') and time_slice in ('2017D244') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19')");
+
+        for(int i = 0; i < 20; i++){
+            Long startTime = System.currentTimeMillis();
+            ResultSet resultSet = session.execute(querys.get(i));
+            resultSet.all().size();
+            Long endTime = System.currentTimeMillis();
+            System.out.println(endTime - startTime);
+        }
+
+
+
+//        ArrayList<String> querys = new ArrayList<>();
+//        querys.add("select * from sagittarius.data_test where host in ('0','10','20','30','40','50','60','70','80','90') and time_slice in ('2017D244') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19') ");
+//        querys.add("select * from sagittarius.data_test where host in ('1','11','21','31','41','51','61','71','81','91') and time_slice in ('2017D245') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19') ");
+//        querys.add("select * from sagittarius.data_test where host in ('2','12','22','32','42','52','62','72','82','92') and time_slice in ('2017D246') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19') ");
+//        querys.add("select * from sagittarius.data_test where host in ('3','13','23','33','43','53','63','73','83','93') and time_slice in ('2017D247') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19') ");
+//        querys.add("select * from sagittarius.data_test where host in ('4','14','24','34','44','54','64','74','84','94') and time_slice in ('2017D248') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19') ");
+//        querys.add("select * from sagittarius.data_test where host in ('5','15','25','35','45','55','65','75','85','95') and time_slice in ('2017D249') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19') ");
+//        querys.add("select * from sagittarius.data_test where host in ('6','16','26','36','46','56','66','76','86','96') and time_slice in ('2017D250') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19') ");
+//        querys.add("select * from sagittarius.data_test where host in ('7','17','27','37','47','57','67','77','87','97') and time_slice in ('2017D244') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19') ");
+//        querys.add("select * from sagittarius.data_test where host in ('8','18','28','38','48','58','68','78','88','98') and time_slice in ('2017D245') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19') ");
+//        querys.add("select * from sagittarius.data_test where host in ('9','19','29','39','49','59','69','79','89','99') and time_slice in ('2017D246') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19') ");
+//        querys.add("select * from sagittarius.data_test where host in ('0','10','20','30','40','50','60','70','80','90') and time_slice in ('2017D247') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19') ");
+//        querys.add("select * from sagittarius.data_test where host in ('1','12','23','34','45','56','67','78','89','90') and time_slice in ('2017D248') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19') ");
+//        querys.add("select * from sagittarius.data_test where host in ('9','18','27','36','45','54','63','72','81','92') and time_slice in ('2017D249') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19') ");
+//        querys.add("select * from sagittarius.data_test where host in ('6','13','27','34','41','52','65','78','83','97') and time_slice in ('2017D250') and metric in ('0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19') ");
+//
+//        int num = threads;
+//
+//        List<ParallelReadThread> tasks = new ArrayList<>();
+//        for (int i = 0; i < num; i++) {
+//            ParallelReadThread task = new ParallelReadThread(session, i, querys.get(i));
+//            task.start();
+//            tasks.add(task);
+//        }
+//
+//        boolean finished = true;
+//        while (true){
+//            for(ParallelReadThread task : tasks){
+//                finished = finished && task.isFinished();
+//            }
+//            if (!finished) {
+//                finished = true;
+//                Thread.sleep(1000);
+//            }
+//            else{
+//                break;
+//            }
+//        }
+    }
+
+    private static void writeForReadTest(SagittariusWriter writer) throws ParseException, NoHostAvailableException, QueryExecutionException, TimeoutException {
+        Random random = new Random();
+        for(Integer i = 0; i < 100; i++){
+            String device = i.toString();
+            for(Integer j = 0; j < 20; j++){
+                String sensor = j.toString();
+                for(Integer k = 0; k < 7; k++){
+                    long priTime = TimeUtil.string2Date("2017-09-01 00:00:00");
+                    priTime += k * 86400000;
+                    SagittariusWriter.Data data = writer.newData();
+                    for(int s = 0; s < 1000; s++){
+                        data.addDatum(device, sensor, priTime+s*1000, priTime+s*1000, TimePartition.DAY, random.nextDouble() * 100);
+                    }
+                    writer.bulkInsert(data);
+                    System.out.println(device + " : " + sensor + " : " + k);
+                }
+            }
+        }
     }
 
     private static void countInfo(SagittariusReader reader){

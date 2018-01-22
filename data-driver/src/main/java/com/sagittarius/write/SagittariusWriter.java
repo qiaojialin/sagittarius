@@ -62,7 +62,7 @@ public class SagittariusWriter implements Writer {
         preIntStatement = session.prepare("insert into data_int (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
         preLongStatement = session.prepare("insert into data_long (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
         preFloatStatement = session.prepare("insert into data_float (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
-        preDoubleStatement = session.prepare("insert into data_double (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
+        preDoubleStatement = session.prepare("insert into data_test (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
         preStringStatement = session.prepare("insert into data_text (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
         preBooleanStatement = session.prepare("insert into data_boolean (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
         preGeoStatement = session.prepare("insert into data_geo (host, metric, time_slice, primary_time, secondary_time, latitude, longitude) values (:host, :metric, :ts, :pt, :st, :la, :lo)");
@@ -70,7 +70,7 @@ public class SagittariusWriter implements Writer {
         preIntStatementWithoutST = session.prepare("insert into data_int (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
         preLongStatementWithoutST = session.prepare("insert into data_long (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
         preFloatStatementWithoutST = session.prepare("insert into data_float (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
-        preDoubleStatementWithoutST = session.prepare("insert into data_double (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
+        preDoubleStatementWithoutST = session.prepare("insert into data_test (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
         preStringStatementWithoutST = session.prepare("insert into data_text (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
         preBooleanStatementWithoutST = session.prepare("insert into data_boolean (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
         preGeoStatementWithoutST = session.prepare("insert into data_geo (host, metric, time_slice, primary_time, latitude, longitude) values (:host, :metric, :ts, :pt, :la, :lo)");
@@ -82,7 +82,7 @@ public class SagittariusWriter implements Writer {
         deleteIntStatement = session.prepare("delete from data_int where host = :h and metric = :m and time_slice = :t");
         deleteLongStatement = session.prepare("delete from data_long where host = :h and metric = :m and time_slice = :t");
         deleteFloatStatement = session.prepare("delete from data_float where host = :h and metric = :m and time_slice = :t");
-        deleteDoubleStatement = session.prepare("delete from data_double where host = :h and metric = :m and time_slice = :t");
+        deleteDoubleStatement = session.prepare("delete from data_test where host = :h and metric = :m and time_slice = :t");
         deleteStringStatement = session.prepare("delete from data_text where host = :h and metric = :m and time_slice = :t");
         deleteBooleanStatement = session.prepare("delete from data_boolean where host = :h and metric = :m and time_slice = :t");
         deleteGeoStatement = session.prepare("delete from data_geo where host = :h and metric = :m and time_slice = :t");
@@ -138,7 +138,7 @@ public class SagittariusWriter implements Writer {
         preIntStatement = session.prepare("insert into data_int (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
         preLongStatement = session.prepare("insert into data_long (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
         preFloatStatement = session.prepare("insert into data_float (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
-        preDoubleStatement = session.prepare("insert into data_double (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
+        preDoubleStatement = session.prepare("insert into data_test (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
         preStringStatement = session.prepare("insert into data_text (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
         preBooleanStatement = session.prepare("insert into data_boolean (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
         preGeoStatement = session.prepare("insert into data_geo (host, metric, time_slice, primary_time, secondary_time, latitude, longitude) values (:host, :metric, :ts, :pt, :st, :la, :lo)");
@@ -146,7 +146,7 @@ public class SagittariusWriter implements Writer {
         preIntStatementWithoutST = session.prepare("insert into data_int (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
         preLongStatementWithoutST = session.prepare("insert into data_long (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
         preFloatStatementWithoutST = session.prepare("insert into data_float (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
-        preDoubleStatementWithoutST = session.prepare("insert into data_double (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
+        preDoubleStatementWithoutST = session.prepare("insert into data_test (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
         preStringStatementWithoutST = session.prepare("insert into data_text (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
         preBooleanStatementWithoutST = session.prepare("insert into data_boolean (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
         preGeoStatementWithoutST = session.prepare("insert into data_geo (host, metric, time_slice, primary_time, latitude, longitude) values (:host, :metric, :ts, :pt, :la, :lo)");

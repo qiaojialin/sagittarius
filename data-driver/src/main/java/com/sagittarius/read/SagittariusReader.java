@@ -149,7 +149,7 @@ public class SagittariusReader implements Reader {
                 table = "data_float";
                 break;
             case DOUBLE:
-                table = "data_double";
+                table = "data_test";
                 break;
             case BOOLEAN:
                 table = "data_boolean";

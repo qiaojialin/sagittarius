@@ -11,7 +11,7 @@ import java.util.List;
 public class CassandraConnection {
 
     private static final Logger logger = LoggerFactory.getLogger(CassandraConnection.class);
-    private static String[] cassandraNodes = new String[]{"192.168.15.114","192.168.15.115","192.168.15.118","192.168.15.119","192.168.15.120","192.168.15.121"};
+    private static String[] cassandraNodes = new String[]{"192.168.3.92"};
 //    private static String[] cassandraNodes = new String[]{"192.168.3.52"};
     private static int cassandraPort = 9042;
     private static CassandraConnection cassandraConnection = null;
