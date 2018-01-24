@@ -3,6 +3,7 @@ package com.sagittarius.write.internals;
 import com.datastax.driver.mapping.MappingManager;
 import com.sagittarius.bean.common.TimePartition;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -193,6 +194,19 @@ public class RecordAccumulator {
                 batches.addLast(batch);
             } else {
                 batch.append(host, metric, primaryTime, secondaryTime, timePartition, latitude, longitude);
+            }
+        }
+    }
+
+    public void append(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, ByteBuffer value) {
+        synchronized (batches) {
+            RecordBatch batch = batches.peekLast();
+            if (batch == null || batch.getRecordCount() >= batchSize) {
+                batch = new RecordBatch(System.currentTimeMillis(), mappingManager);
+                batch.append(host, metric, primaryTime, secondaryTime, timePartition, value);
+                batches.addLast(batch);
+            } else {
+                batch.append(host, metric, primaryTime, secondaryTime, timePartition, value);
             }
         }
     }

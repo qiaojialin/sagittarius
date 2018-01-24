@@ -50,7 +50,7 @@ public class SagittariusReader implements Reader {
     private Cache<HostMetricPair, TypePartitionPair> cache;
     private static long SECOND_TO_MICROSECOND = 1000L;
     private static long SECONDS_OF_DAY = 86400;
-    private static long SLICES_LIMIT = 30;
+    private static long DEFAULT_FUZZY_LIMIT = 30;
 //    private PreparedStatement aggIntStatement;
 //    private PreparedStatement aggLongStatement;
 //    private PreparedStatement aggFloatStatement;
@@ -162,6 +162,9 @@ public class SagittariusReader implements Reader {
                 break;
             case GEO:
                 table = "data_geo";
+                break;
+            case BLOB:
+                table = "data_blod";
                 break;
         }
         return table;
@@ -475,84 +478,118 @@ public class SagittariusReader implements Reader {
         return result.size() != 0 ? result : null;
     }
 
-    private List<ResultSet> getPointResultSet(String host, String metric, long time, ValueType valueType, Shift shift) {
+    @Override
+    public Map<String, Map<String, BlobPoint>> getBlobPoint(List<String> hosts, List<String> metrics, long time) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        Map<String, Map<String, BlobPoint>> result = new HashMap<>();
 
-        String table = getTableByType(valueType);
-        List<ResultSet> resultSets = new ArrayList<>();
-
-        List<String> hosts = new ArrayList<>(), metrics = new ArrayList<>();
-        hosts.add(host);
-        metrics.add(metric);
-        List<HostMetric> hostMetrics = getHostMetrics(hosts, metrics);
-        if (hostMetrics.size() == 0) {
-            return resultSets;
-        }
-
-        Statement statement;
-        String timeSlice;
-
-        if (shift == Shift.NEAREST) {
-            long tmp = 0;
-            boolean flag = false;
-            while (tmp <= SLICES_LIMIT){
-                timeSlice = TimeUtil.generateTimeSlice(time - tmp * SECONDS_OF_DAY * SECOND_TO_MICROSECOND, hostMetrics.get(0).getTimePartition());
-                statement = new SimpleStatement(String.format(QueryStatement.POINT_BEFORE_SHIFT_QUERY_STATEMENT, table, host, metric, timeSlice, time));
-                ResultSet setBefore = session.execute(statement);
-                if (!setBefore.isExhausted()){
-                    resultSets.add(setBefore);
-                    flag = true;
-                }
-
-                timeSlice = TimeUtil.generateTimeSlice(time + tmp * SECONDS_OF_DAY * SECOND_TO_MICROSECOND, hostMetrics.get(0).getTimePartition());
-                statement = new SimpleStatement(String.format(QueryStatement.POINT_AFTER_SHIFT_QUERY_STATEMENT, table, host, metric, timeSlice, time));
-                ResultSet setAfter = session.execute(statement);
-                if (!setAfter.isExhausted()){
-                    resultSets.add(setAfter);
-                    flag = true;
-                }
-
-                if(flag){
-                    break;
-                }
-
-                tmp++;
+        try {
+            List<ResultSet> resultSets = getPointResultSet(hosts, metrics, time, ValueType.FLOAT);
+            List<BlobData> datas = new ArrayList<>();
+            Mapper<BlobData> mapper = mappingManager.mapper(BlobData.class);
+            for (ResultSet rs : resultSets) {
+                datas.addAll(mapper.map(rs).all());
             }
-            return resultSets;
-        }
 
-        String queryStatement = null;
-        long factor = 0;
-        switch (shift) {
-            case BEFORE:
-                queryStatement = QueryStatement.POINT_BEFORE_SHIFT_QUERY_STATEMENT;
-                factor = -1;
-                break;
-            case AFTER:
-                queryStatement = QueryStatement.POINT_AFTER_SHIFT_QUERY_STATEMENT;
-                factor = 1;
-                break;
-        }
-
-        long tmp = 0;
-        while (tmp <= SLICES_LIMIT){
-            timeSlice = TimeUtil.generateTimeSlice(time + factor * tmp * SECONDS_OF_DAY * SECOND_TO_MICROSECOND, hostMetrics.get(0).getTimePartition());
-            statement = new SimpleStatement(String.format(queryStatement, table, host, metric, timeSlice, time));
-            ResultSet set = session.execute(statement);
-            if (!set.isExhausted()){
-                resultSets.add(set);
-                break;
+            for (BlobData data : datas) {
+                String host = data.getHost();
+                String metric = data.getMetric();
+                if (result.containsKey(host)) {
+                    result.get(host).put(metric, new BlobPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
+                } else {
+                    Map<String, BlobPoint> metricMap = new HashMap<>();
+                    metricMap.put(metric, new BlobPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
+                    result.put(host, metricMap);
+                }
             }
-            tmp++;
+        } catch (NoHostAvailableException e) {
+            throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
+        } catch (OperationTimedOutException | ReadTimeoutException e) {
+            throw new TimeoutException(e.getMessage(), e.getCause());
+        } catch (QueryExecutionException e) {
+            throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
         }
 
-        return resultSets;
+        return result.size() != 0 ? result : null;
     }
+
+//    private List<ResultSet> getPointResultSet(String host, String metric, long time, ValueType valueType, Shift shift) {
+//
+//        String table = getTableByType(valueType);
+//        List<ResultSet> resultSets = new ArrayList<>();
+//
+//        List<String> hosts = new ArrayList<>(), metrics = new ArrayList<>();
+//        hosts.add(host);
+//        metrics.add(metric);
+//        List<HostMetric> hostMetrics = getHostMetrics(hosts, metrics);
+//        if (hostMetrics.size() == 0) {
+//            return resultSets;
+//        }
+//
+//        Statement statement;
+//        String timeSlice;
+//
+//        if (shift == Shift.NEAREST) {
+//            long tmp = 0;
+//            boolean flag = false;
+//            while (tmp <= SLICES_LIMIT){
+//                timeSlice = TimeUtil.generateTimeSlice(time - tmp * SECONDS_OF_DAY * SECOND_TO_MICROSECOND, hostMetrics.get(0).getTimePartition());
+//                statement = new SimpleStatement(String.format(QueryStatement.POINT_BEFORE_SHIFT_QUERY_STATEMENT, table, host, metric, timeSlice, time));
+//                ResultSet setBefore = session.execute(statement);
+//                if (!setBefore.isExhausted()){
+//                    resultSets.add(setBefore);
+//                    flag = true;
+//                }
+//
+//                timeSlice = TimeUtil.generateTimeSlice(time + tmp * SECONDS_OF_DAY * SECOND_TO_MICROSECOND, hostMetrics.get(0).getTimePartition());
+//                statement = new SimpleStatement(String.format(QueryStatement.POINT_AFTER_SHIFT_QUERY_STATEMENT, table, host, metric, timeSlice, time));
+//                ResultSet setAfter = session.execute(statement);
+//                if (!setAfter.isExhausted()){
+//                    resultSets.add(setAfter);
+//                    flag = true;
+//                }
+//
+//                if(flag){
+//                    break;
+//                }
+//
+//                tmp++;
+//            }
+//            return resultSets;
+//        }
+//
+//        String queryStatement = null;
+//        long factor = 0;
+//        switch (shift) {
+//            case BEFORE:
+//                queryStatement = QueryStatement.POINT_BEFORE_SHIFT_QUERY_STATEMENT;
+//                factor = -1;
+//                break;
+//            case AFTER:
+//                queryStatement = QueryStatement.POINT_AFTER_SHIFT_QUERY_STATEMENT;
+//                factor = 1;
+//                break;
+//        }
+//
+//        long tmp = 0;
+//        while (tmp <= SLICES_LIMIT){
+//            timeSlice = TimeUtil.generateTimeSlice(time + factor * tmp * SECONDS_OF_DAY * SECOND_TO_MICROSECOND, hostMetrics.get(0).getTimePartition());
+//            statement = new SimpleStatement(String.format(queryStatement, table, host, metric, timeSlice, time));
+//            ResultSet set = session.execute(statement);
+//            if (!set.isExhausted()){
+//                resultSets.add(set);
+//                break;
+//            }
+//            tmp++;
+//        }
+//
+//        return resultSets;
+//    }
 
     private List<ResultSet> getPointResultSet(String host, String metric, long time, ValueType valueType, Shift shift, long limit) {
 
         String table = getTableByType(valueType);
         List<ResultSet> resultSets = new ArrayList<>();
-        if(limit <= 0){
+        if(limit < 0){
             return resultSets;
         }
 
@@ -626,7 +663,7 @@ public class SagittariusReader implements Reader {
 
     @Override
     public IntPoint getFuzzyIntPoint(String host, String metric, long time, Shift shift) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
-        return getFuzzyIntPoint(host, metric, time, shift, 30);
+        return getFuzzyIntPoint(host, metric, time, shift, DEFAULT_FUZZY_LIMIT);
     }
 
     @Override
@@ -658,7 +695,7 @@ public class SagittariusReader implements Reader {
 
     @Override
     public LongPoint getFuzzyLongPoint(String host, String metric, long time, Shift shift) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
-        return getFuzzyLongPoint(host, metric, time, shift, 30);
+        return getFuzzyLongPoint(host, metric, time, shift, DEFAULT_FUZZY_LIMIT);
     }
 
     @Override
@@ -690,7 +727,7 @@ public class SagittariusReader implements Reader {
 
     @Override
     public FloatPoint getFuzzyFloatPoint(String host, String metric, long time, Shift shift) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
-        return getFuzzyFloatPoint(host, metric, time, shift, 30);
+        return getFuzzyFloatPoint(host, metric, time, shift, DEFAULT_FUZZY_LIMIT);
     }
 
     @Override
@@ -722,7 +759,7 @@ public class SagittariusReader implements Reader {
 
     @Override
     public DoublePoint getFuzzyDoublePoint(String host, String metric, long time, Shift shift) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
-        return getFuzzyDoublePoint(host, metric, time, shift, 30);
+        return getFuzzyDoublePoint(host, metric, time, shift, DEFAULT_FUZZY_LIMIT);
     }
 
     @Override
@@ -754,7 +791,7 @@ public class SagittariusReader implements Reader {
 
     @Override
     public BooleanPoint getFuzzyBooleanPoint(String host, String metric, long time, Shift shift) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
-        return getFuzzyBooleanPoint(host, metric, time, shift, 30);
+        return getFuzzyBooleanPoint(host, metric, time, shift, DEFAULT_FUZZY_LIMIT);
     }
 
     @Override
@@ -786,7 +823,7 @@ public class SagittariusReader implements Reader {
 
     @Override
     public StringPoint getFuzzyStringPoint(String host, String metric, long time, Shift shift) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
-        return getFuzzyStringPoint(host, metric, time, shift, 30);
+        return getFuzzyStringPoint(host, metric, time, shift, DEFAULT_FUZZY_LIMIT);
     }
 
     @Override
@@ -818,7 +855,7 @@ public class SagittariusReader implements Reader {
 
     @Override
     public GeoPoint getFuzzyGeoPoint(String host, String metric, long time, Shift shift) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
-        return getFuzzyGeoPoint(host, metric, time, shift, 30);
+        return getFuzzyGeoPoint(host, metric, time, shift, DEFAULT_FUZZY_LIMIT);
     }
 
     @Override
@@ -838,6 +875,38 @@ public class SagittariusReader implements Reader {
                     return new GeoPoint(dataAfter.getMetric(), dataAfter.getPrimaryTime(), dataAfter.secondaryTimeUnboxed(), dataAfter.getLatitude(), dataAfter.getLongitude());
                 else
                     return new GeoPoint(dataBefore.getMetric(), dataBefore.getPrimaryTime(), dataBefore.secondaryTimeUnboxed(), dataBefore.getLatitude(), dataBefore.getLongitude());
+            }
+        } catch (NoHostAvailableException e) {
+            throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
+        } catch (OperationTimedOutException | ReadTimeoutException e) {
+            throw new TimeoutException(e.getMessage(), e.getCause());
+        } catch (QueryExecutionException e) {
+            throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+        }
+    }
+
+    @Override
+    public BlobPoint getFuzzyBlobPoint(String host, String metric, long time, Shift shift) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        return getFuzzyBlobPoint(host, metric, time, shift, DEFAULT_FUZZY_LIMIT);
+    }
+
+    @Override
+    public BlobPoint getFuzzyBlobPoint(String hosts, String metrics, long time, Shift shift, long limit) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        try {
+            List<ResultSet> resultSets = getPointResultSet(hosts, metrics, time, ValueType.FLOAT, shift, limit);
+            Mapper<BlobData> mapper = mappingManager.mapper(BlobData.class);
+            if (resultSets.size() == 0) {
+                return null;
+            } else if (resultSets.size() == 1) {
+                BlobData data = mapper.map(resultSets.get(0)).one();
+                return new BlobPoint(data.getMetric(), data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue());
+            } else {
+                BlobData dataBefore = mapper.map(resultSets.get(0)).one();
+                BlobData dataAfter = mapper.map(resultSets.get(1)).one();
+                if (time - dataBefore.getPrimaryTime() >= dataAfter.getPrimaryTime() - time)
+                    return new BlobPoint(dataAfter.getMetric(), dataAfter.getPrimaryTime(), dataAfter.secondaryTimeUnboxed(), dataAfter.getValue());
+                else
+                    return new BlobPoint(dataBefore.getMetric(), dataBefore.getPrimaryTime(), dataBefore.secondaryTimeUnboxed(), dataBefore.getValue());
             }
         } catch (NoHostAvailableException e) {
             throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
@@ -1115,6 +1184,44 @@ public class SagittariusReader implements Reader {
                 } else {
                     Map<String, GeoPoint> metricMap = new HashMap<>();
                     metricMap.put(metric, new GeoPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getLatitude(), data.getLongitude()));
+                    result.put(host, metricMap);
+                }
+            }
+        } catch (NoHostAvailableException e) {
+            throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
+        } catch (OperationTimedOutException | ReadTimeoutException e) {
+            throw new TimeoutException(e.getMessage(), e.getCause());
+        } catch (QueryExecutionException e) {
+            throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+        }
+
+        return result.size() != 0 ? result : null;
+    }
+
+    @Override
+    public Map<String, Map<String, BlobPoint>> getBlobLatest(List<String> hosts, List<String> metrics) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        Map<String, Map<String, BlobPoint>> result = new HashMap<>();
+
+        try {
+            Result<Latest> latests = getLatestResult(hosts, metrics);
+            Mapper<BlobData> mapperBlob = mappingManager.mapper(BlobData.class);
+
+            for (Latest latest : latests) {
+                String host = latest.getHost();
+                String metric = latest.getMetric();
+                String timeSlice = latest.getTimeSlice();
+                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.FLOAT);
+                //if data type mismatch, then the rs contains nothing.
+                List<BlobData> r = mapperBlob.map(rs).all();
+                if(r.isEmpty()){
+                    continue;
+                }
+                BlobData data = r.get(0);
+                if (result.containsKey(host)) {
+                    result.get(host).put(metric, new BlobPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
+                } else {
+                    Map<String, BlobPoint> metricMap = new HashMap<>();
+                    metricMap.put(metric, new BlobPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
                     result.put(host, metricMap);
                 }
             }
@@ -1545,6 +1652,51 @@ public class SagittariusReader implements Reader {
                 List<GeoPoint> points = new ArrayList<>();
                 points.add(new GeoPoint(data.getMetric(), data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getLatitude(), data.getLongitude()));
                 Map<String, List<GeoPoint>> metricMap = new HashMap<>();
+                metricMap.put(metric, points);
+                result.put(host, metricMap);
+            }
+        }
+
+        return result.size() != 0 ? result : null;
+    }
+
+    @Override
+    public Map<String, Map<String, List<BlobPoint>>> getBlobRange(List<String> hosts, List<String> metrics, long startTime, long endTime, boolean desc) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        if (endTime < startTime)
+            return null;
+        Map<String, Map<String, List<BlobPoint>>> result = new HashMap<>();
+        List<BlobData> datas = new ArrayList<>();
+
+        try {
+            List<String> querys = getRangeQueryString(hosts, metrics, startTime, endTime, ValueType.FLOAT, desc);
+            Mapper<BlobData> mapper = mappingManager.mapper(BlobData.class);
+            for (String query : querys) {
+                ResultSet rs = session.execute(query);
+                datas.addAll(mapper.map(rs).all());
+            }
+        } catch (NoHostAvailableException e) {
+            throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
+        } catch (OperationTimedOutException | ReadTimeoutException e) {
+            throw new TimeoutException(e.getMessage(), e.getCause());
+        } catch (QueryExecutionException e) {
+            throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+        }
+
+        for (BlobData data : datas) {
+            String host = data.getHost();
+            String metric = data.getMetric();
+            if (result.containsKey(host)) {
+                if (result.get(host).containsKey(metric)) {
+                    result.get(host).get(metric).add(new BlobPoint(data.getMetric(), data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
+                } else {
+                    List<BlobPoint> points = new ArrayList<>();
+                    points.add(new BlobPoint(data.getMetric(), data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
+                    result.get(host).put(metric, points);
+                }
+            } else {
+                List<BlobPoint> points = new ArrayList<>();
+                points.add(new BlobPoint(data.getMetric(), data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
+                Map<String, List<BlobPoint>> metricMap = new HashMap<>();
                 metricMap.put(metric, points);
                 result.put(host, metricMap);
             }
@@ -2009,6 +2161,57 @@ public class SagittariusReader implements Reader {
                 List<GeoPoint> points = new ArrayList<>();
                 points.add(new GeoPoint(data.getMetric(), data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getLatitude(), data.getLongitude()));
                 Map<String, List<GeoPoint>> metricMap = new HashMap<>();
+                metricMap.put(metric, points);
+                result.put(host, metricMap);
+            }
+        }
+
+        return result.size() != 0 ? result : null;
+    }
+
+    @Override
+    public Map<String, Map<String, List<BlobPoint>>> getBlobRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        if (endTime < startTime)
+            return null;
+
+        String queryFilter = filter == null ? "" : " and " + filter;
+
+        Map<String, Map<String, List<BlobPoint>>> result = new HashMap<>();
+        List<BlobData> datas = new ArrayList<>();
+
+        try {
+            List<String> predicates = getRangeQueryPredicates(hosts, metrics, startTime, endTime, queryFilter, desc);
+            if (predicates.size() == 0) {
+                return null;
+            }
+            Mapper<BlobData> mapper = mappingManager.mapper(BlobData.class);
+            for (String query : predicates) {
+                ResultSet rs = session.execute("select * from data_float where " + query);
+                datas.addAll(mapper.map(rs).all());
+            }
+        } catch (NoHostAvailableException e) {
+            throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
+        } catch (OperationTimedOutException | ReadTimeoutException e) {
+            throw new TimeoutException(e.getMessage(), e.getCause());
+        } catch (QueryExecutionException e) {
+            throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+        }
+
+        for (BlobData data : datas) {
+            String host = data.getHost();
+            String metric = data.getMetric();
+            if (result.containsKey(host)) {
+                if (result.get(host).containsKey(metric)) {
+                    result.get(host).get(metric).add(new BlobPoint(data.getMetric(), data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
+                } else {
+                    List<BlobPoint> points = new ArrayList<>();
+                    points.add(new BlobPoint(data.getMetric(), data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
+                    result.get(host).put(metric, points);
+                }
+            } else {
+                List<BlobPoint> points = new ArrayList<>();
+                points.add(new BlobPoint(data.getMetric(), data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
+                Map<String, List<BlobPoint>> metricMap = new HashMap<>();
                 metricMap.put(metric, points);
                 result.put(host, metricMap);
             }
@@ -2659,6 +2862,55 @@ public class SagittariusReader implements Reader {
                 String inTimeSlices = generateInStatement(timeSlices);
                 String query = String.format(QueryStatement.IN_PARTITION_WHERE_STATEMENT_AGG, host, metric, inTimeSlices, startTime, endTime, queryFilter);
                 SimpleStatement statement = new SimpleStatement("select count(value) from data_geo where " + query);
+                ResultSet resultSet = session.execute(statement);
+                if(resultSet != null && !result.isEmpty()){
+                    datas.put(hostMetric, (double)resultSet.one().getLong(0));
+                }
+            }
+
+            for (Map.Entry<HostMetric, Double> data : datas.entrySet()) {
+                String host = data.getKey().getHost();
+                String metric = data.getKey().getMetric();
+                if (result.containsKey(host)) {
+                    result.get(host).put(metric, data.getValue());
+                } else {
+                    Map<String, Double> map = new HashMap<>();
+                    map.put(metric, data.getValue());
+                    result.put(host, map);
+                }
+            }
+        } catch (NoHostAvailableException e) {
+            throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
+        } catch (OperationTimedOutException | ReadTimeoutException e) {
+            throw new TimeoutException(e.getMessage(), e.getCause());
+        } catch (QueryExecutionException e) {
+            throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+        }
+
+        return result.size() != 0 ? result : null;
+    }
+
+    @Override
+    public Map<String, Map<String, Double>> getBlobRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        if (endTime < startTime)
+            return null;
+
+        Map<String, Map<String, Double>> result = new HashMap<>();
+        Map<HostMetric, Double> datas = new HashMap<>();
+
+        String queryFilter = filter == null ? "" : " and " + filter + " allow filtering";
+
+        List<HostMetric> hostMetrics = getHostMetrics(hosts, metrics);
+
+        try {
+            for(HostMetric hostMetric : hostMetrics){
+                String host = hostMetric.getHost();
+                String metric = hostMetric.getMetric();
+                TimePartition timePartition = hostMetric.getTimePartition();
+                List<String> timeSlices = getTimeSlices(startTime, endTime, timePartition);
+                String inTimeSlices = generateInStatement(timeSlices);
+                String query = String.format(QueryStatement.IN_PARTITION_WHERE_STATEMENT_AGG, host, metric, inTimeSlices, startTime, endTime, queryFilter);
+                SimpleStatement statement = new SimpleStatement("select count(value) from data_boolean where " + query);
                 ResultSet resultSet = session.execute(statement);
                 if(resultSet != null && !result.isEmpty()){
                     datas.put(hostMetric, (double)resultSet.one().getLong(0));

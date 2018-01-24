@@ -71,7 +71,7 @@ public class SagittariusWriter implements Writer {
         preDoubleStatement = session.prepare("insert into data_double (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
         preStringStatement = session.prepare("insert into data_text (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
         preBooleanStatement = session.prepare("insert into data_boolean (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
-//        preBlobStatement = session.prepare("insert into data_blob (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
+        preBlobStatement = session.prepare("insert into data_blob (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
         preGeoStatement = session.prepare("insert into data_geo (host, metric, time_slice, primary_time, secondary_time, latitude, longitude) values (:host, :metric, :ts, :pt, :st, :la, :lo)");
 
         preIntStatementWithoutST = session.prepare("insert into data_int (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
@@ -80,7 +80,7 @@ public class SagittariusWriter implements Writer {
         preDoubleStatementWithoutST = session.prepare("insert into data_double (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
         preStringStatementWithoutST = session.prepare("insert into data_text (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
         preBooleanStatementWithoutST = session.prepare("insert into data_boolean (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
-//        preBlobStatementWithoutST = session.prepare("insert into data_blob (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
+        preBlobStatementWithoutST = session.prepare("insert into data_blob (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
         preGeoStatementWithoutST = session.prepare("insert into data_geo (host, metric, time_slice, primary_time, latitude, longitude) values (:host, :metric, :ts, :pt, :la, :lo)");
 
         preLatestStatement = session.prepare("insert into latest (host, metric, time_slice) values (:host, :metric, :time_slice)");
@@ -93,7 +93,7 @@ public class SagittariusWriter implements Writer {
         deleteDoubleStatement = session.prepare("delete from data_double where host = :h and metric = :m and time_slice = :t");
         deleteStringStatement = session.prepare("delete from data_text where host = :h and metric = :m and time_slice = :t");
         deleteBooleanStatement = session.prepare("delete from data_boolean where host = :h and metric = :m and time_slice = :t");
-//        deleteBlobStatement = session.prepare("delete from data_boolean where host = :h and metric = :m and time_slice = :t");
+        deleteBlobStatement = session.prepare("delete from data_boolean where host = :h and metric = :m and time_slice = :t");
         deleteGeoStatement = session.prepare("delete from data_geo where host = :h and metric = :m and time_slice = :t");
     }
 
@@ -192,19 +192,19 @@ public class SagittariusWriter implements Writer {
         }
 
         private void updateLatest(Latest candidate) {
-//            HostMetricPair pair = new HostMetricPair(candidate.getHost(), candidate.getMetric());
-//            if (latestData.containsKey(pair)) {
-//                if (latestData.get(pair).getTimeSlice().compareTo(candidate.getTimeSlice()) < 0){
-//                    latestData.put(pair, candidate);
-//                    BoundStatement statement = preLatestStatement.bind(candidate.getHost(), candidate.getMetric(), candidate.getTimeSlice());
-//                    batchStatement.add(statement);
-//                }
-//
-//            } else {
-//                latestData.put(pair, candidate);
-//                BoundStatement statement = preLatestStatement.bind(candidate.getHost(), candidate.getMetric(), candidate.getTimeSlice());
-//                batchStatement.add(statement);
-//            }
+            HostMetricPair pair = new HostMetricPair(candidate.getHost(), candidate.getMetric());
+            if (latestData.containsKey(pair)) {
+                if (latestData.get(pair).getTimeSlice().compareTo(candidate.getTimeSlice()) < 0){
+                    latestData.put(pair, candidate);
+                    BoundStatement statement = preLatestStatement.bind(candidate.getHost(), candidate.getMetric(), candidate.getTimeSlice());
+                    batchStatement.add(statement);
+                }
+
+            } else {
+                latestData.put(pair, candidate);
+                BoundStatement statement = preLatestStatement.bind(candidate.getHost(), candidate.getMetric(), candidate.getTimeSlice());
+                batchStatement.add(statement);
+            }
         }
 
         public void addDatum(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, int value) {
@@ -300,7 +300,7 @@ public class SagittariusWriter implements Writer {
             BoundStatement statement = secondaryTime == -1? preDoubleStatementWithoutST.bind(host, metric, timeSlice, primaryTime, value)
                     : preDoubleStatement.bind(host, metric, timeSlice, primaryTime, secondaryTime, value);
             batchStatement.add(statement);
-//            updateLatest(new Latest(host, metric, timeSlice));
+            updateLatest(new Latest(host, metric, timeSlice));
         }
 
         public void addDatum(String host, String metric, long primaryTime, long secondaryTime, double value) throws UnregisteredHostMetricException, DataTypeMismatchException {
@@ -756,12 +756,50 @@ public class SagittariusWriter implements Writer {
         }
     }
 
+    @Override
+    public void insert(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, ByteBuffer value) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        try {
+            if (autoBatch) {
+                accumulator.append(host, metric, primaryTime, secondaryTime, timePartition, value);
+            } else {
+                String timeSlice = TimeUtil.generateTimeSlice(primaryTime, timePartition);
+                Long boxedSecondaryTime = secondaryTime == -1 ? null : secondaryTime;
+                Mapper<BlobData> dataMapper = mappingManager.mapper(BlobData.class);
+                Mapper<Latest> latestMapper = mappingManager.mapper(Latest.class);
+                dataMapper.save(new BlobData(host, metric, timeSlice, primaryTime, boxedSecondaryTime, value), saveNullFields(false));
+                latestMapper.save(new Latest(host, metric, timeSlice), saveNullFields(false));
+            }
+        } catch (NoHostAvailableException e) {
+            throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
+        } catch (OperationTimedOutException | WriteTimeoutException e) {
+            throw new TimeoutException(e.getMessage(), e.getCause());
+        } catch (QueryExecutionException e) {
+            throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+        }
+    }
+
+    @Override
+    public void insert(String host, String metric, long primaryTime, long secondaryTime, ByteBuffer value) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException, UnregisteredHostMetricException, DataTypeMismatchException {
+        HostMetric hostMetric = getHostMetric(host, metric);
+        if(hostMetric != null){
+            if(hostMetric.getValueType() != ValueType.BLOB){
+                throw new DataTypeMismatchException("Mismatched DataType : Blob. DataType of the value should be " + getValueTypeString(hostMetric.getValueType()));
+            }
+            else {
+                insert(host, metric, primaryTime, secondaryTime, hostMetric.getTimePartition(), value);
+            }
+        }
+        else {
+            throw new UnregisteredHostMetricException("Unregistered hostMetric : " + host + " " + metric);
+        }
+    }
+
     public void bulkInsert(Data data) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         try {
-//            for (Map.Entry<HostMetricPair, Latest> entry : latestData.entrySet()) {
-//                BoundStatement statement = preLatestStatement.bind(entry.getValue().getHost(), entry.getValue().getMetric(), entry.getValue().getTimeSlice());
-//                data.batchStatement.add(statement);
-//            }
+            for (Map.Entry<HostMetricPair, Latest> entry : latestData.entrySet()) {
+                BoundStatement statement = preLatestStatement.bind(entry.getValue().getHost(), entry.getValue().getMetric(), entry.getValue().getTimeSlice());
+                data.batchStatement.add(statement);
+            }
             session.execute(data.batchStatement);
         } catch (NoHostAvailableException e) {
             throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
@@ -795,6 +833,9 @@ public class SagittariusWriter implements Writer {
                 break;
             case GEO:
                 table = "data_geo";
+                break;
+            case BLOB:
+                table = "data_blob";
                 break;
         }
         return table;
@@ -937,6 +978,9 @@ public class SagittariusWriter implements Writer {
                 case GEO:
                     deleteStatement = deleteGeoStatement;
                     break;
+                case BLOB:
+                    deleteStatement = deleteBlobStatement;
+                    break;
             }
             if(deleteStatement == null){
                 continue;
@@ -981,6 +1025,9 @@ public class SagittariusWriter implements Writer {
         }
         if(valueType == ValueType.GEO){
             return "Geo";
+        }
+        if(valueType == ValueType.BLOB){
+            return "Blob";
         }
 
         return "";

@@ -4,6 +4,7 @@ import com.sagittarius.bean.common.MetricMetadata;
 import com.sagittarius.bean.common.TimePartition;
 import com.sagittarius.exceptions.*;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
@@ -214,6 +215,34 @@ public interface Writer {
     void insert(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, float latitude, float longitude) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
     void insert(String host, String metric, long primaryTime, long secondaryTime, float latitude, float longitude) throws NoHostAvailableException, TimeoutException, QueryExecutionException, UnregisteredHostMetricException, DataTypeMismatchException;
+
+    /**
+     * insert a metric data point info whose metric value type is DOUBLE.
+     * there are two time parameters: primaryTime and secondaryTime.
+     * primaryTime is more important than secondaryTime as their names imply.
+     * the concern is there may be two time for a data point, one can be the
+     * create time and another can be the receive time. You should set a time
+     * which you think most important as the primaryTime. Besides, primaryTime
+     * must have a meaningful value while secondaryTime can be null by setting
+     * it to -1.
+     * we provide a method without the TimePartition parameter, in this method
+     * we will automatically query the timePartition information. if the device
+     * or sensor doesn't exsist, the method will throw a Unregistered device or
+     * sensor Exception.
+     * the no-timepartition-parm method will also check if the datatype of parameter VALUE
+     * and the registered sensor's datatype matches, or it will throw an
+     * datatype mismatch Exception.
+     * @param host the host name(or id)
+     * @param metric the metric name(or id)
+     * @param primaryTime timestamp in millisecond, must have a meaningful value
+     * @param secondaryTime timestamp in millisecond, -1 means null
+     * @param timePartition time partition
+     * @param value the metric value
+     */
+    void insert(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, ByteBuffer value) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
+
+    void insert(String host, String metric, long primaryTime, long secondaryTime, ByteBuffer value) throws NoHostAvailableException, TimeoutException, QueryExecutionException, UnregisteredHostMetricException, DataTypeMismatchException;
+
 
     void insert(String host, String metric, long timeSlice, double maxValue, double minValue, double countValue, double sumValue) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 

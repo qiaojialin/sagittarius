@@ -12,6 +12,7 @@ import com.sagittarius.bean.table.*;
 import com.sagittarius.util.TimeUtil;
 import com.sagittarius.bean.result.*;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -129,6 +130,16 @@ public class RecordBatch {
         batchStatement.add(statement);
         updateLatest(new Latest(host, metric, timeSlice));
         rawData.add(new BatchPoint(host, metric, primaryTime, secondaryTime, ValueType.GEO, latitude, longitude));
+    }
+
+    public void append(String host, String metric, long primaryTime, long secondaryTime, TimePartition timePartition, ByteBuffer value) {
+        String timeSlice = TimeUtil.generateTimeSlice(primaryTime, timePartition);
+        Long boxedSecondaryTime = secondaryTime == -1 ? null : secondaryTime;
+        Mapper<BlobData> dataMapper = mappingManager.mapper(BlobData.class);
+        Statement statement = dataMapper.saveQuery(new BlobData(host, metric, timeSlice, primaryTime, boxedSecondaryTime, value), timestamp(primaryTime * 1000), saveNullFields(false));
+        batchStatement.add(statement);
+        updateLatest(new Latest(host, metric, timeSlice));
+        rawData.add(new BatchPoint(host, metric, primaryTime, secondaryTime, ValueType.BOOLEAN, value));
     }
 
     public ArrayList<BatchPoint> getRawData(){

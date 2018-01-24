@@ -4,6 +4,7 @@ package com.sagittarius.read;
 import com.sagittarius.bean.common.ValueType;
 import com.sagittarius.bean.query.*;
 import com.sagittarius.bean.result.*;
+import com.sagittarius.bean.table.BlobData;
 import com.sagittarius.bean.table.HostMetric;
 import com.sagittarius.exceptions.NoHostAvailableException;
 import com.sagittarius.exceptions.QueryExecutionException;
@@ -103,6 +104,15 @@ public interface Reader {
      * @return map of GeoPoints at the query time, the key is  host name, the value is list of GeoPoints related to that host
      */
     Map<String, Map<String, GeoPoint>> getGeoPoint(List<String> hosts, List<String> metrics, long time) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
+/**
+     * given hosts list and metrics list,each host is associated with the same list of metrics , get GeoPoints at the query time.
+     *
+     * @param hosts   lists of hosts
+     * @param metrics lists of metrics
+     * @param time    query time
+     * @return map of BlobPoints at the query time, the key is  host name, the value is list of BlobPoints related to that host
+     */
+    Map<String, Map<String, BlobPoint>> getBlobPoint(List<String> hosts, List<String> metrics, long time) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
     /**
      * given host and metric , get a IntPoint at the query time, if there isn't point at that time, will search point according to shift option.
@@ -222,6 +232,22 @@ public interface Reader {
      */
     GeoPoint getFuzzyGeoPoint(String host, String metric, long time, Shift shift) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
     GeoPoint getFuzzyGeoPoint(String host, String metric, long time, Shift shift, long limit) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
+/**
+     * given host and metric , get a BlobPoint at the query time, if there isn't point at that time, will search point according to shift option.
+     * the supported shifts are:
+     * <br>
+     * <br>       BEFORE -- search backward for a point nearest to the query time
+     * <br>       AFTER -- search forward for a point nearest to the query time
+     * <br>       NEAREST -- search backward and forward for a point nearest to the query time
+     *
+     * @param host   a hosts,namely device
+     * @param metric a metric, namely sensor
+     * @param time   query time
+     * @param shift  shift option, can be BEFORE, AFTER, NEAREST
+     * @return a BlobPoint
+     */
+    BlobPoint getFuzzyBlobPoint(String host, String metric, long time, Shift shift) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
+    BlobPoint getFuzzyBlobPoint(String host, String metric, long time, Shift shift, long limit) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
     /**
      * given hosts list and metrics list,each host is associated with the same list of metrics , get IntPoints at the latest time.
@@ -285,6 +311,14 @@ public interface Reader {
      * @return map of GeoPoints at the latest time, the key is  host name, the value is list of GeoPoints related to that host
      */
     Map<String, Map<String, GeoPoint>> getGeoLatest(List<String> hosts, List<String> metrics) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
+/**
+     * given hosts list and metrics list,each host is associated with the same list of metrics , get BlobPoints at the latest time.
+     *
+     * @param hosts   lists of hosts
+     * @param metrics lists of metrics
+     * @return map of BlobPoints at the latest time, the key is  host name, the value is list of GeoPoints related to that host
+     */
+    Map<String, Map<String, BlobPoint>> getBlobLatest(List<String> hosts, List<String> metrics) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
     /**
      * given hosts list and metrics list,each host is associated with the same list of metrics , get IntPoints in the given time range.
@@ -362,6 +396,16 @@ public interface Reader {
      * @return map of GeoPoints, the key is  host name, the value is list of GeoPoints related to that host
      */
     Map<String, Map<String, List<GeoPoint>>> getGeoRange(List<String> hosts, List<String> metrics, long startTime, long endTime, boolean desc) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
+/**
+     * given hosts list and metrics list,each host is associated with the same list of metrics , get BlobPoints in the given time range.
+     *
+     * @param hosts     lists of hosts
+     * @param metrics   lists of metrics
+     * @param startTime start time of the range
+     * @param endTime   end time of the range
+     * @return map of BlobPoints, the key is  host name, the value is list of BlobPoints related to that host
+     */
+    Map<String, Map<String, List<BlobPoint>>> getBlobRange(List<String> hosts, List<String> metrics, long startTime, long endTime, boolean desc) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
     Map<String, Map<String, List<IntPoint>>> getIntRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
@@ -377,6 +421,8 @@ public interface Reader {
 
     Map<String, Map<String, List<GeoPoint>>> getGeoRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
+    Map<String, Map<String, List<BlobPoint>>> getBlobRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, boolean desc) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
+
     Map<String, Map<String, Double>> getIntRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
     Map<String, Map<String, Double>> getLongRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
@@ -390,6 +436,8 @@ public interface Reader {
     Map<String, Map<String, Double>> getStringRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
     Map<String, Map<String, Double>> getGeoRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
+
+    Map<String, Map<String, Double>> getBlobRange(List<String> hosts, List<String> metrics, long startTime, long endTime, String filter, AggregationType aggregationType) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
 //    void exportIntCSV(List<String> hosts, List<String> metrics, long startTime, long endTime, int splitHours, String filter, String filePath) throws IOException, NoHostAvailableException, TimeoutException, QueryExecutionException;
 //
