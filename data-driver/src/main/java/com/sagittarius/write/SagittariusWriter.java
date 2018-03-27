@@ -28,7 +28,7 @@ public class SagittariusWriter implements Writer {
     private Session session;
     private MappingManager mappingManager;
     private Cache<HostMetricPair, TypePartitionPair> cache;
-    private Map<HostMetricPair, Latest> latestData = new ConcurrentHashMap<>();
+    private Map<HostMetricPair, Latest> latestData = new HashMap<>();
     private RecordAccumulator accumulator;
     private Sender sender;
     private boolean autoBatch;
@@ -797,10 +797,10 @@ public class SagittariusWriter implements Writer {
 
     public void bulkInsert(Data data) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         try {
-            for (Map.Entry<HostMetricPair, Latest> entry : latestData.entrySet()) {
-                BoundStatement statement = preLatestStatement.bind(entry.getValue().getHost(), entry.getValue().getMetric(), entry.getValue().getTimeSlice());
-                data.batchStatement.add(statement);
-            }
+//            for (Map.Entry<HostMetricPair, Latest> entry : latestData.entrySet()) {
+//                BoundStatement statement = preLatestStatement.bind(entry.getValue().getHost(), entry.getValue().getMetric(), entry.getValue().getTimeSlice());
+//                data.batchStatement.add(statement);
+//            }
             session.execute(data.batchStatement);
         } catch (NoHostAvailableException e) {
             throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
