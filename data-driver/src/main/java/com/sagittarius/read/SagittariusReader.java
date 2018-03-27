@@ -34,10 +34,12 @@ import com.sagittarius.write.Writer;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.nio.ByteBuffer;
 import java.time.LocalDateTime;
 //import java.time.ZoneOffset;
 import java.util.*;
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 //import static com.datastax.spark.connector.japi.CassandraJavaUtil.javaFunctions;
@@ -164,7 +166,7 @@ public class SagittariusReader implements Reader {
                 table = "data_geo";
                 break;
             case BLOB:
-                table = "data_blod";
+                table = "data_blob";
                 break;
         }
         return table;
@@ -483,7 +485,7 @@ public class SagittariusReader implements Reader {
         Map<String, Map<String, BlobPoint>> result = new HashMap<>();
 
         try {
-            List<ResultSet> resultSets = getPointResultSet(hosts, metrics, time, ValueType.FLOAT);
+            List<ResultSet> resultSets = getPointResultSet(hosts, metrics, time, ValueType.BLOB);
             List<BlobData> datas = new ArrayList<>();
             Mapper<BlobData> mapper = mappingManager.mapper(BlobData.class);
             for (ResultSet rs : resultSets) {
@@ -893,7 +895,7 @@ public class SagittariusReader implements Reader {
     @Override
     public BlobPoint getFuzzyBlobPoint(String hosts, String metrics, long time, Shift shift, long limit) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         try {
-            List<ResultSet> resultSets = getPointResultSet(hosts, metrics, time, ValueType.FLOAT, shift, limit);
+            List<ResultSet> resultSets = getPointResultSet(hosts, metrics, time, ValueType.BLOB, shift, limit);
             Mapper<BlobData> mapper = mappingManager.mapper(BlobData.class);
             if (resultSets.size() == 0) {
                 return null;
@@ -934,6 +936,45 @@ public class SagittariusReader implements Reader {
 
     @Override
     public Map<String, Map<String, IntPoint>> getIntLatest(List<String> hosts, List<String> metrics) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+//        Map<String, Map<String, IntPoint>> result = new HashMap<>();
+//
+//        try {
+//            Result<Latest> latests = getLatestResult(hosts, metrics);
+//            Mapper<IntData> mapperInt = mappingManager.mapper(IntData.class);
+//
+//            for (Latest latest : latests) {
+//                String host = latest.getHost();
+//                String metric = latest.getMetric();
+//                String timeSlice = latest.getTimeSlice();
+//                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.INT);
+//                //if data type mismatch, then the rs contains nothing.
+//                List<IntData> r = mapperInt.map(rs).all();
+//                if(r.isEmpty()){
+//                    continue;
+//                }
+//                IntData data = r.get(0);
+//                if (result.containsKey(host)) {
+//                    result.get(host).put(metric, new IntPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
+//                } else {
+//                    Map<String, IntPoint> metricMap = new HashMap<>();
+//                    metricMap.put(metric, new IntPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
+//                    result.put(host, metricMap);
+//                }
+//            }
+//        } catch (NoHostAvailableException e) {
+//            throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
+//        } catch (OperationTimedOutException | ReadTimeoutException e) {
+//            throw new TimeoutException(e.getMessage(), e.getCause());
+//        } catch (QueryExecutionException e) {
+//            throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+//        }
+
+//        return result.size() != 0 ? result : null;
+        return getIntLatest(hosts, metrics, x -> true);
+    }
+
+    @Override
+    public Map<String, Map<String, IntPoint>> getIntLatest(List<String> hosts, List<String> metrics, Predicate<Integer> filter) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         Map<String, Map<String, IntPoint>> result = new HashMap<>();
 
         try {
@@ -951,6 +992,12 @@ public class SagittariusReader implements Reader {
                     continue;
                 }
                 IntData data = r.get(0);
+
+                // test the lambda expression, if not match, skip
+                if(!filter.test(data.getValue())){
+                    continue;
+                }
+
                 if (result.containsKey(host)) {
                     result.get(host).put(metric, new IntPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
                 } else {
@@ -972,6 +1019,45 @@ public class SagittariusReader implements Reader {
 
     @Override
     public Map<String, Map<String, LongPoint>> getLongLatest(List<String> hosts, List<String> metrics) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+//        Map<String, Map<String, LongPoint>> result = new HashMap<>();
+//
+//        try {
+//            Result<Latest> latests = getLatestResult(hosts, metrics);
+//            Mapper<LongData> mapperLong = mappingManager.mapper(LongData.class);
+//
+//            for (Latest latest : latests) {
+//                String host = latest.getHost();
+//                String metric = latest.getMetric();
+//                String timeSlice = latest.getTimeSlice();
+//                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.LONG);
+//                //if data type mismatch, then the rs contains nothing.
+//                List<LongData> r = mapperLong.map(rs).all();
+//                if(r.isEmpty()){
+//                    continue;
+//                }
+//                LongData data = r.get(0);
+//                if (result.containsKey(host)) {
+//                    result.get(host).put(metric, new LongPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
+//                } else {
+//                    Map<String, LongPoint> metricMap = new HashMap<>();
+//                    metricMap.put(metric, new LongPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
+//                    result.put(host, metricMap);
+//                }
+//            }
+//        } catch (NoHostAvailableException e) {
+//            throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
+//        } catch (OperationTimedOutException | ReadTimeoutException e) {
+//            throw new TimeoutException(e.getMessage(), e.getCause());
+//        } catch (QueryExecutionException e) {
+//            throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+//        }
+//
+//        return result.size() != 0 ? result : null;
+        return getLongLatest(hosts, metrics, x -> true);
+    }
+
+    @Override
+    public Map<String, Map<String, LongPoint>> getLongLatest(List<String> hosts, List<String> metrics, Predicate<Long> filter) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         Map<String, Map<String, LongPoint>> result = new HashMap<>();
 
         try {
@@ -989,6 +1075,12 @@ public class SagittariusReader implements Reader {
                     continue;
                 }
                 LongData data = r.get(0);
+
+                // test the lambda expression, if not match, skip
+                if(!filter.test(data.getValue())){
+                    continue;
+                }
+
                 if (result.containsKey(host)) {
                     result.get(host).put(metric, new LongPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
                 } else {
@@ -1010,6 +1102,11 @@ public class SagittariusReader implements Reader {
 
     @Override
     public Map<String, Map<String, FloatPoint>> getFloatLatest(List<String> hosts, List<String> metrics) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        return getFloatLatest(hosts, metrics, x->true);
+    }
+
+    @Override
+    public Map<String, Map<String, FloatPoint>> getFloatLatest(List<String> hosts, List<String> metrics, Predicate<Float> filter) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         Map<String, Map<String, FloatPoint>> result = new HashMap<>();
 
         try {
@@ -1027,6 +1124,12 @@ public class SagittariusReader implements Reader {
                     continue;
                 }
                 FloatData data = r.get(0);
+
+                // test the lambda expression, if not match, skip
+                if(!filter.test(data.getValue())){
+                    continue;
+                }
+
                 if (result.containsKey(host)) {
                     result.get(host).put(metric, new FloatPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
                 } else {
@@ -1048,6 +1151,11 @@ public class SagittariusReader implements Reader {
 
     @Override
     public Map<String, Map<String, DoublePoint>> getDoubleLatest(List<String> hosts, List<String> metrics) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        return getDoubleLatest(hosts,metrics, x -> true);
+    }
+
+    @Override
+    public Map<String, Map<String, DoublePoint>> getDoubleLatest(List<String> hosts, List<String> metrics, Predicate<Double> filter) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         Map<String, Map<String, DoublePoint>> result = new HashMap<>();
 
         try {
@@ -1065,6 +1173,12 @@ public class SagittariusReader implements Reader {
                     continue;
                 }
                 DoubleData data = r.get(0);
+
+                // test the lambda expression, if not match, skip
+                if(!filter.test(data.getValue())){
+                    continue;
+                }
+
                 if (result.containsKey(host)) {
                     result.get(host).put(metric, new DoublePoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
                 } else {
@@ -1086,6 +1200,11 @@ public class SagittariusReader implements Reader {
 
     @Override
     public Map<String, Map<String, BooleanPoint>> getBooleanLatest(List<String> hosts, List<String> metrics) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        return getBooleanLatest(hosts, metrics, x -> true);
+    }
+
+    @Override
+    public Map<String, Map<String, BooleanPoint>> getBooleanLatest(List<String> hosts, List<String> metrics, Predicate<Boolean> filter) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         Map<String, Map<String, BooleanPoint>> result = new HashMap<>();
 
         try {
@@ -1103,6 +1222,12 @@ public class SagittariusReader implements Reader {
                     continue;
                 }
                 BooleanData data = r.get(0);
+
+                // test the lambda expression, if not match, skip
+                if(!filter.test(data.getValue())){
+                    continue;
+                }
+
                 if (result.containsKey(host)) {
                     result.get(host).put(metric, new BooleanPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
                 } else {
@@ -1124,6 +1249,11 @@ public class SagittariusReader implements Reader {
 
     @Override
     public Map<String, Map<String, StringPoint>> getStringLatest(List<String> hosts, List<String> metrics) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        return getStringLatest(hosts, metrics, x -> true);
+    }
+
+    @Override
+    public Map<String, Map<String, StringPoint>> getStringLatest(List<String> hosts, List<String> metrics, Predicate<String> filter) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         Map<String, Map<String, StringPoint>> result = new HashMap<>();
 
         try {
@@ -1141,6 +1271,12 @@ public class SagittariusReader implements Reader {
                     continue;
                 }
                 StringData data = r.get(0);
+
+                // test the lambda expression, if not match, skip
+                if(!filter.test(data.getValue())){
+                    continue;
+                }
+
                 if (result.containsKey(host)) {
                     result.get(host).put(metric, new StringPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
                 } else {
@@ -1162,6 +1298,11 @@ public class SagittariusReader implements Reader {
 
     @Override
     public Map<String, Map<String, GeoPoint>> getGeoLatest(List<String> hosts, List<String> metrics) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        return getGeoLatest(hosts, metrics, x -> true, x -> true);
+    }
+
+    @Override
+    public Map<String, Map<String, GeoPoint>> getGeoLatest(List<String> hosts, List<String> metrics, Predicate<Float> latitudeFilter, Predicate<Float> longitudeFilter) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         Map<String, Map<String, GeoPoint>> result = new HashMap<>();
 
         try {
@@ -1179,11 +1320,17 @@ public class SagittariusReader implements Reader {
                     continue;
                 }
                 GeoData data = r.get(0);
+
+                // test the lambda expression, if not match, skip
+                if(!(longitudeFilter.test(data.getLongitude()) && latitudeFilter.test(data.getLatitude()))){
+                    continue;
+                }
+
                 if (result.containsKey(host)) {
-                    result.get(host).put(metric, new GeoPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getLatitude(), data.getLongitude()));
+                    result.get(host).put(metric, new GeoPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getLongitude(), data.getLatitude()));
                 } else {
                     Map<String, GeoPoint> metricMap = new HashMap<>();
-                    metricMap.put(metric, new GeoPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getLatitude(), data.getLongitude()));
+                    metricMap.put(metric, new GeoPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getLongitude(), data.getLatitude()));
                     result.put(host, metricMap);
                 }
             }
@@ -1200,6 +1347,11 @@ public class SagittariusReader implements Reader {
 
     @Override
     public Map<String, Map<String, BlobPoint>> getBlobLatest(List<String> hosts, List<String> metrics) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        return getBlobLatest(hosts, metrics, x -> true);
+    }
+
+    @Override
+    public Map<String, Map<String, BlobPoint>> getBlobLatest(List<String> hosts, List<String> metrics, Predicate<ByteBuffer> filter) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         Map<String, Map<String, BlobPoint>> result = new HashMap<>();
 
         try {
@@ -1210,13 +1362,17 @@ public class SagittariusReader implements Reader {
                 String host = latest.getHost();
                 String metric = latest.getMetric();
                 String timeSlice = latest.getTimeSlice();
-                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.FLOAT);
+                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.BLOB);
                 //if data type mismatch, then the rs contains nothing.
                 List<BlobData> r = mapperBlob.map(rs).all();
                 if(r.isEmpty()){
                     continue;
                 }
                 BlobData data = r.get(0);
+                // test the lambda expression, if not match, skip
+                if(!filter.test(data.getValue())){
+                    continue;
+                }
                 if (result.containsKey(host)) {
                     result.get(host).put(metric, new BlobPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
                 } else {
@@ -1668,7 +1824,7 @@ public class SagittariusReader implements Reader {
         List<BlobData> datas = new ArrayList<>();
 
         try {
-            List<String> querys = getRangeQueryString(hosts, metrics, startTime, endTime, ValueType.FLOAT, desc);
+            List<String> querys = getRangeQueryString(hosts, metrics, startTime, endTime, ValueType.BLOB, desc);
             Mapper<BlobData> mapper = mappingManager.mapper(BlobData.class);
             for (String query : querys) {
                 ResultSet rs = session.execute(query);
@@ -3872,7 +4028,7 @@ public class SagittariusReader implements Reader {
                         SimpleStatement minStatement = new SimpleStatement("select min(value) from " + tablename + " where " + filter);
                         SimpleStatement countStatement = new SimpleStatement("select count(value) from " + tablename + " where " + filter);
                         SimpleStatement sumStatement = new SimpleStatement("select sum(value) from " + tablename + " where " + filter);
-                        if(valueType == ValueType.STRING || valueType == ValueType.BOOLEAN || valueType == ValueType.GEO){
+                        if(valueType == ValueType.STRING || valueType == ValueType.BOOLEAN || valueType == ValueType.GEO || valueType == ValueType.BLOB){
                             ResultSet resultSet = session.execute(countStatement);
                             long countResult = resultSet.all().get(0).getLong(0);
                             if (countResult > 0) {
@@ -3946,6 +4102,9 @@ public class SagittariusReader implements Reader {
         }
         if(valueType == ValueType.GEO){
             return Float.class;
+        }
+        if(valueType == ValueType.BLOB){
+            return ByteBuffer.class;
         }
         return Object.class;
     }

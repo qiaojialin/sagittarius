@@ -20,6 +20,7 @@ import java.nio.ByteBuffer;
 import java.text.ParseException;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.datastax.driver.mapping.Mapper.Option.saveNullFields;
 
@@ -27,7 +28,7 @@ public class SagittariusWriter implements Writer {
     private Session session;
     private MappingManager mappingManager;
     private Cache<HostMetricPair, TypePartitionPair> cache;
-    private Map<HostMetricPair, Latest> latestData = new HashMap<>();
+    private Map<HostMetricPair, Latest> latestData = new ConcurrentHashMap<>();
     private RecordAccumulator accumulator;
     private Sender sender;
     private boolean autoBatch;
@@ -149,7 +150,7 @@ public class SagittariusWriter implements Writer {
         preFloatStatement = session.prepare("insert into data_float (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
         preDoubleStatement = session.prepare("insert into data_double (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
         preStringStatement = session.prepare("insert into data_text (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
-//        preBlobStatement = session.prepare("insert into data_blob (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
+        preBlobStatement = session.prepare("insert into data_blob (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
         preBooleanStatement = session.prepare("insert into data_boolean (host, metric, time_slice, primary_time, secondary_time, value) values (:host, :metric, :ts, :pt, :st, :v)");
         preGeoStatement = session.prepare("insert into data_geo (host, metric, time_slice, primary_time, secondary_time, latitude, longitude) values (:host, :metric, :ts, :pt, :st, :la, :lo)");
 
@@ -158,7 +159,7 @@ public class SagittariusWriter implements Writer {
         preFloatStatementWithoutST = session.prepare("insert into data_float (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
         preDoubleStatementWithoutST = session.prepare("insert into data_double (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
         preStringStatementWithoutST = session.prepare("insert into data_text (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
-//        preBlobStatementWithoutST = session.prepare("insert into data_blob (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
+        preBlobStatementWithoutST = session.prepare("insert into data_blob (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
         preBooleanStatementWithoutST = session.prepare("insert into data_boolean (host, metric, time_slice, primary_time, value) values (:host, :metric, :ts, :pt, :v)");
         preGeoStatementWithoutST = session.prepare("insert into data_geo (host, metric, time_slice, primary_time, latitude, longitude) values (:host, :metric, :ts, :pt, :la, :lo)");
 
@@ -171,7 +172,7 @@ public class SagittariusWriter implements Writer {
         deleteFloatStatement = session.prepare("delete from data_float where host = :h and metric = :m and time_slice = :t");
         deleteDoubleStatement = session.prepare("delete from data_double where host = :h and metric = :m and time_slice = :t");
         deleteStringStatement = session.prepare("delete from data_text where host = :h and metric = :m and time_slice = :t");
-//        deleteBlobStatement = session.prepare("delete from data_boolean where host = :h and metric = :m and time_slice = :t");
+        deleteBlobStatement = session.prepare("delete from data_boolean where host = :h and metric = :m and time_slice = :t");
         deleteBooleanStatement = session.prepare("delete from data_boolean where host = :h and metric = :m and time_slice = :t");
         deleteGeoStatement = session.prepare("delete from data_geo where host = :h and metric = :m and time_slice = :t");
     }
@@ -434,10 +435,10 @@ public class SagittariusWriter implements Writer {
             }
         }
 
-        public void addDatum(String host, String metric, String primaryTime, String secondaryTime, float lagitude, float longitude) throws UnregisteredHostMetricException, DataTypeMismatchException, ParseException {
+        public void addDatum(String host, String metric, String primaryTime, String secondaryTime, float latitude, float longitude) throws UnregisteredHostMetricException, DataTypeMismatchException, ParseException {
             long pTime = TimeUtil.string2Date(primaryTime);
             long sTime = TimeUtil.string2Date(secondaryTime);
-            addDatum(host, metric, pTime, sTime, lagitude, longitude);
+            addDatum(host, metric, pTime, sTime, latitude, longitude);
         }
     }
 

@@ -1,9 +1,15 @@
 package com.sagittarius.bean.table;
 
 import com.datastax.driver.mapping.annotations.Column;
+import com.datastax.driver.mapping.annotations.Table;
 
 import java.nio.ByteBuffer;
 
+/**
+ * class map to cassandra table data_boolean
+ */
+
+@Table(name = "data_blob")
 public class BlobData extends AbstractData {
     private ByteBuffer value;
 
