@@ -919,6 +919,13 @@ public class SagittariusReader implements Reader {
         }
     }
 
+    private String generateInStatement(String timeslice){
+        StringBuilder sb = new StringBuilder();
+        sb.append("'").append(timeslice).append("'");
+        return sb.toString();
+    }
+
+    //默认查询一条最近数据
     private Result<Latest> getLatestResult(List<String> hosts, List<String> metrics) {
         String table = "latest";
         SimpleStatement statement = new SimpleStatement(String.format(QueryStatement.LATEST_TIMESLICE_QUERY_STATEMENT, table, generateInStatement(hosts), generateInStatement(metrics)));
@@ -935,41 +942,63 @@ public class SagittariusReader implements Reader {
     }
 
     @Override
-    public Map<String, Map<String, IntPoint>> getIntLatest(List<String> hosts, List<String> metrics) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
-//        Map<String, Map<String, IntPoint>> result = new HashMap<>();
-//
-//        try {
-//            Result<Latest> latests = getLatestResult(hosts, metrics);
-//            Mapper<IntData> mapperInt = mappingManager.mapper(IntData.class);
-//
-//            for (Latest latest : latests) {
-//                String host = latest.getHost();
-//                String metric = latest.getMetric();
-//                String timeSlice = latest.getTimeSlice();
-//                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.INT);
-//                //if data type mismatch, then the rs contains nothing.
-//                List<IntData> r = mapperInt.map(rs).all();
-//                if(r.isEmpty()){
+    public Map<String, Map<String, List<IntPoint>>> getIntLatest(List<String> hosts, List<String> metrics, int num) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        Map<String, Map<String, List<IntPoint>>> result = new HashMap<>();
+
+        try {
+            Result<Latest> latests = getLatestResult(hosts, metrics);
+            Mapper<IntData> mapperInt = mappingManager.mapper(IntData.class);
+
+            for (Latest latest : latests) {
+                String host = latest.getHost();
+                String metric = latest.getMetric();
+                String timeSlice = latest.getTimeSlice();
+                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.INT);
+                //if data type mismatch, then the rs contains nothing.
+                List<IntData> r = mapperInt.map(rs).all();
+                if(r.isEmpty()){
+                    continue;
+                }
+                IntData data = r.get(0);
+
+                // test the lambda expression, if not match, skip
+//                if(!filter.test(data.getValue())){
 //                    continue;
 //                }
-//                IntData data = r.get(0);
-//                if (result.containsKey(host)) {
-//                    result.get(host).put(metric, new IntPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
-//                } else {
-//                    Map<String, IntPoint> metricMap = new HashMap<>();
-//                    metricMap.put(metric, new IntPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
-//                    result.put(host, metricMap);
-//                }
-//            }
-//        } catch (NoHostAvailableException e) {
-//            throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
-//        } catch (OperationTimedOutException | ReadTimeoutException e) {
-//            throw new TimeoutException(e.getMessage(), e.getCause());
-//        } catch (QueryExecutionException e) {
-//            throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
-//        }
 
-//        return result.size() != 0 ? result : null;
+                List<IntPoint> intPoints = new ArrayList<>();
+                intPoints.add(new IntPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
+                long latestTime = data.getPrimaryTime() - 1L;
+                for(int i = 1; i < num; i++){
+                    IntPoint intPoint = getFuzzyIntPoint(host, metric, latestTime, Shift.BEFORE);
+                    if(intPoint == null){
+                        break;
+                    }
+                    intPoints.add(intPoint);
+                    latestTime = intPoint.getPrimaryTime() -1L;
+                }
+
+                if (result.containsKey(host)) {
+                    result.get(host).put(metric, intPoints);
+                } else {
+                    Map<String, List<IntPoint>> metricMap = new HashMap<>();
+                    metricMap.put(metric, intPoints);
+                    result.put(host, metricMap);
+                }
+            }
+        } catch (NoHostAvailableException e) {
+            throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
+        } catch (OperationTimedOutException | ReadTimeoutException e) {
+            throw new TimeoutException(e.getMessage(), e.getCause());
+        } catch (QueryExecutionException e) {
+            throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+        }
+
+        return result.size() != 0 ? result : null;
+    }
+
+    @Override
+    public Map<String, Map<String, IntPoint>> getIntLatest(List<String> hosts, List<String> metrics) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         return getIntLatest(hosts, metrics, x -> true);
     }
 
@@ -1018,41 +1047,64 @@ public class SagittariusReader implements Reader {
     }
 
     @Override
-    public Map<String, Map<String, LongPoint>> getLongLatest(List<String> hosts, List<String> metrics) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
-//        Map<String, Map<String, LongPoint>> result = new HashMap<>();
-//
-//        try {
-//            Result<Latest> latests = getLatestResult(hosts, metrics);
-//            Mapper<LongData> mapperLong = mappingManager.mapper(LongData.class);
-//
-//            for (Latest latest : latests) {
-//                String host = latest.getHost();
-//                String metric = latest.getMetric();
-//                String timeSlice = latest.getTimeSlice();
-//                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.LONG);
-//                //if data type mismatch, then the rs contains nothing.
-//                List<LongData> r = mapperLong.map(rs).all();
-//                if(r.isEmpty()){
+    public Map<String, Map<String, List<LongPoint>>> getLongLatest(List<String> hosts, List<String> metrics, int num) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        Map<String, Map<String, List<LongPoint>>> result = new HashMap<>();
+
+        try {
+            Result<Latest> latests = getLatestResult(hosts, metrics);
+            Mapper<LongData> mapperLong = mappingManager.mapper(LongData.class);
+
+            for (Latest latest : latests) {
+                String host = latest.getHost();
+                String metric = latest.getMetric();
+                String timeSlice = latest.getTimeSlice();
+                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.INT);
+                //if data type mismatch, then the rs contains nothing.
+                List<LongData> r = mapperLong.map(rs).all();
+                if(r.isEmpty()){
+                    continue;
+                }
+                LongData data = r.get(0);
+
+                // test the lambda expression, if not match, skip
+//                if(!filter.test(data.getValue())){
 //                    continue;
 //                }
-//                LongData data = r.get(0);
-//                if (result.containsKey(host)) {
-//                    result.get(host).put(metric, new LongPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
-//                } else {
-//                    Map<String, LongPoint> metricMap = new HashMap<>();
-//                    metricMap.put(metric, new LongPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
-//                    result.put(host, metricMap);
-//                }
-//            }
-//        } catch (NoHostAvailableException e) {
-//            throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
-//        } catch (OperationTimedOutException | ReadTimeoutException e) {
-//            throw new TimeoutException(e.getMessage(), e.getCause());
-//        } catch (QueryExecutionException e) {
-//            throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
-//        }
-//
-//        return result.size() != 0 ? result : null;
+
+                List<LongPoint> intPoints = new ArrayList<>();
+                intPoints.add(new LongPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
+                long latestTime = data.getPrimaryTime() - 1L;
+                for(int i = 1; i < num; i++){
+                    LongPoint intPoint = getFuzzyLongPoint(host, metric, latestTime, Shift.BEFORE);
+                    if(intPoint == null){
+                        break;
+                    }
+                    intPoints.add(intPoint);
+                    latestTime = intPoint.getPrimaryTime() -1L;
+                }
+
+                if (result.containsKey(host)) {
+                    result.get(host).put(metric, intPoints);
+                } else {
+                    Map<String, List<LongPoint>> metricMap = new HashMap<>();
+                    metricMap.put(metric, intPoints);
+                    result.put(host, metricMap);
+                }
+            }
+        } catch (NoHostAvailableException e) {
+            throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
+        } catch (OperationTimedOutException | ReadTimeoutException e) {
+            throw new TimeoutException(e.getMessage(), e.getCause());
+        } catch (QueryExecutionException e) {
+            throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+        }
+
+        return result.size() != 0 ? result : null;
+    }
+
+
+    @Override
+    public Map<String, Map<String, LongPoint>> getLongLatest(List<String> hosts, List<String> metrics) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         return getLongLatest(hosts, metrics, x -> true);
     }
 
@@ -1099,6 +1151,63 @@ public class SagittariusReader implements Reader {
 
         return result.size() != 0 ? result : null;
     }
+
+    @Override
+    public Map<String, Map<String, List<FloatPoint>>> getFloatLatest(List<String> hosts, List<String> metrics, int num) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        Map<String, Map<String, List<FloatPoint>>> result = new HashMap<>();
+
+        try {
+            Result<Latest> latests = getLatestResult(hosts, metrics);
+            Mapper<FloatData> mapperFloat = mappingManager.mapper(FloatData.class);
+
+            for (Latest latest : latests) {
+                String host = latest.getHost();
+                String metric = latest.getMetric();
+                String timeSlice = latest.getTimeSlice();
+                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.INT);
+                //if data type mismatch, then the rs contains nothing.
+                List<FloatData> r = mapperFloat.map(rs).all();
+                if(r.isEmpty()){
+                    continue;
+                }
+                FloatData data = r.get(0);
+
+                // test the lambda expression, if not match, skip
+//                if(!filter.test(data.getValue())){
+//                    continue;
+//                }
+
+                List<FloatPoint> intPoints = new ArrayList<>();
+                intPoints.add(new FloatPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
+                long latestTime = data.getPrimaryTime() - 1L;
+                for(int i = 1; i < num; i++){
+                    FloatPoint intPoint = getFuzzyFloatPoint(host, metric, latestTime, Shift.BEFORE);
+                    if(intPoint == null){
+                        break;
+                    }
+                    intPoints.add(intPoint);
+                    latestTime = intPoint.getPrimaryTime() -1L;
+                }
+
+                if (result.containsKey(host)) {
+                    result.get(host).put(metric, intPoints);
+                } else {
+                    Map<String, List<FloatPoint>> metricMap = new HashMap<>();
+                    metricMap.put(metric, intPoints);
+                    result.put(host, metricMap);
+                }
+            }
+        } catch (NoHostAvailableException e) {
+            throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
+        } catch (OperationTimedOutException | ReadTimeoutException e) {
+            throw new TimeoutException(e.getMessage(), e.getCause());
+        } catch (QueryExecutionException e) {
+            throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+        }
+
+        return result.size() != 0 ? result : null;
+    }
+
 
     @Override
     public Map<String, Map<String, FloatPoint>> getFloatLatest(List<String> hosts, List<String> metrics) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
@@ -1150,6 +1259,63 @@ public class SagittariusReader implements Reader {
     }
 
     @Override
+    public Map<String, Map<String, List<DoublePoint>>> getDoubleLatest(List<String> hosts, List<String> metrics, int num) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        Map<String, Map<String, List<DoublePoint>>> result = new HashMap<>();
+
+        try {
+            Result<Latest> latests = getLatestResult(hosts, metrics);
+            Mapper<DoubleData> mapperDouble = mappingManager.mapper(DoubleData.class);
+
+            for (Latest latest : latests) {
+                String host = latest.getHost();
+                String metric = latest.getMetric();
+                String timeSlice = latest.getTimeSlice();
+                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.INT);
+                //if data type mismatch, then the rs contains nothing.
+                List<DoubleData> r = mapperDouble.map(rs).all();
+                if(r.isEmpty()){
+                    continue;
+                }
+                DoubleData data = r.get(0);
+
+                // test the lambda expression, if not match, skip
+//                if(!filter.test(data.getValue())){
+//                    continue;
+//                }
+
+                List<DoublePoint> intPoints = new ArrayList<>();
+                intPoints.add(new DoublePoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
+                long latestTime = data.getPrimaryTime() - 1L;
+                for(int i = 1; i < num; i++){
+                    DoublePoint intPoint = getFuzzyDoublePoint(host, metric, latestTime, Shift.BEFORE);
+                    if(intPoint == null){
+                        break;
+                    }
+                    intPoints.add(intPoint);
+                    latestTime = intPoint.getPrimaryTime() -1L;
+                }
+
+                if (result.containsKey(host)) {
+                    result.get(host).put(metric, intPoints);
+                } else {
+                    Map<String, List<DoublePoint>> metricMap = new HashMap<>();
+                    metricMap.put(metric, intPoints);
+                    result.put(host, metricMap);
+                }
+            }
+        } catch (NoHostAvailableException e) {
+            throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
+        } catch (OperationTimedOutException | ReadTimeoutException e) {
+            throw new TimeoutException(e.getMessage(), e.getCause());
+        } catch (QueryExecutionException e) {
+            throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+        }
+
+        return result.size() != 0 ? result : null;
+    }
+
+
+    @Override
     public Map<String, Map<String, DoublePoint>> getDoubleLatest(List<String> hosts, List<String> metrics) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         return getDoubleLatest(hosts,metrics, x -> true);
     }
@@ -1197,6 +1363,63 @@ public class SagittariusReader implements Reader {
 
         return result.size() != 0 ? result : null;
     }
+
+    @Override
+    public Map<String, Map<String, List<BooleanPoint>>> getBooleanLatest(List<String> hosts, List<String> metrics, int num) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        Map<String, Map<String, List<BooleanPoint>>> result = new HashMap<>();
+
+        try {
+            Result<Latest> latests = getLatestResult(hosts, metrics);
+            Mapper<BooleanData> mapperBoolean = mappingManager.mapper(BooleanData.class);
+
+            for (Latest latest : latests) {
+                String host = latest.getHost();
+                String metric = latest.getMetric();
+                String timeSlice = latest.getTimeSlice();
+                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.INT);
+                //if data type mismatch, then the rs contains nothing.
+                List<BooleanData> r = mapperBoolean.map(rs).all();
+                if(r.isEmpty()){
+                    continue;
+                }
+                BooleanData data = r.get(0);
+
+                // test the lambda expression, if not match, skip
+//                if(!filter.test(data.getValue())){
+//                    continue;
+//                }
+
+                List<BooleanPoint> intPoints = new ArrayList<>();
+                intPoints.add(new BooleanPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
+                long latestTime = data.getPrimaryTime() - 1L;
+                for(int i = 1; i < num; i++){
+                    BooleanPoint intPoint = getFuzzyBooleanPoint(host, metric, latestTime, Shift.BEFORE);
+                    if(intPoint == null){
+                        break;
+                    }
+                    intPoints.add(intPoint);
+                    latestTime = intPoint.getPrimaryTime() -1L;
+                }
+
+                if (result.containsKey(host)) {
+                    result.get(host).put(metric, intPoints);
+                } else {
+                    Map<String, List<BooleanPoint>> metricMap = new HashMap<>();
+                    metricMap.put(metric, intPoints);
+                    result.put(host, metricMap);
+                }
+            }
+        } catch (NoHostAvailableException e) {
+            throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
+        } catch (OperationTimedOutException | ReadTimeoutException e) {
+            throw new TimeoutException(e.getMessage(), e.getCause());
+        } catch (QueryExecutionException e) {
+            throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+        }
+
+        return result.size() != 0 ? result : null;
+    }
+
 
     @Override
     public Map<String, Map<String, BooleanPoint>> getBooleanLatest(List<String> hosts, List<String> metrics) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
@@ -1248,6 +1471,63 @@ public class SagittariusReader implements Reader {
     }
 
     @Override
+    public Map<String, Map<String, List<StringPoint>>> getStringLatest(List<String> hosts, List<String> metrics, int num) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        Map<String, Map<String, List<StringPoint>>> result = new HashMap<>();
+
+        try {
+            Result<Latest> latests = getLatestResult(hosts, metrics);
+            Mapper<StringData> mapperString = mappingManager.mapper(StringData.class);
+
+            for (Latest latest : latests) {
+                String host = latest.getHost();
+                String metric = latest.getMetric();
+                String timeSlice = latest.getTimeSlice();
+                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.INT);
+                //if data type mismatch, then the rs contains nothing.
+                List<StringData> r = mapperString.map(rs).all();
+                if(r.isEmpty()){
+                    continue;
+                }
+                StringData data = r.get(0);
+
+                // test the lambda expression, if not match, skip
+//                if(!filter.test(data.getValue())){
+//                    continue;
+//                }
+
+                List<StringPoint> intPoints = new ArrayList<>();
+                intPoints.add(new StringPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
+                long latestTime = data.getPrimaryTime() - 1L;
+                for(int i = 1; i < num; i++){
+                    StringPoint intPoint = getFuzzyStringPoint(host, metric, latestTime, Shift.BEFORE);
+                    if(intPoint == null){
+                        break;
+                    }
+                    intPoints.add(intPoint);
+                    latestTime = intPoint.getPrimaryTime() -1L;
+                }
+
+                if (result.containsKey(host)) {
+                    result.get(host).put(metric, intPoints);
+                } else {
+                    Map<String, List<StringPoint>> metricMap = new HashMap<>();
+                    metricMap.put(metric, intPoints);
+                    result.put(host, metricMap);
+                }
+            }
+        } catch (NoHostAvailableException e) {
+            throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
+        } catch (OperationTimedOutException | ReadTimeoutException e) {
+            throw new TimeoutException(e.getMessage(), e.getCause());
+        } catch (QueryExecutionException e) {
+            throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+        }
+
+        return result.size() != 0 ? result : null;
+    }
+
+
+    @Override
     public Map<String, Map<String, StringPoint>> getStringLatest(List<String> hosts, List<String> metrics) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         return getStringLatest(hosts, metrics, x -> true);
     }
@@ -1297,6 +1577,63 @@ public class SagittariusReader implements Reader {
     }
 
     @Override
+    public Map<String, Map<String, List<GeoPoint>>> getGeoLatest(List<String> hosts, List<String> metrics, int num) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        Map<String, Map<String, List<GeoPoint>>> result = new HashMap<>();
+
+        try {
+            Result<Latest> latests = getLatestResult(hosts, metrics);
+            Mapper<GeoData> mapperGeo = mappingManager.mapper(GeoData.class);
+
+            for (Latest latest : latests) {
+                String host = latest.getHost();
+                String metric = latest.getMetric();
+                String timeSlice = latest.getTimeSlice();
+                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.INT);
+                //if data type mismatch, then the rs contains nothing.
+                List<GeoData> r = mapperGeo.map(rs).all();
+                if(r.isEmpty()){
+                    continue;
+                }
+                GeoData data = r.get(0);
+
+                // test the lambda expression, if not match, skip
+//                if(!filter.test(data.getValue())){
+//                    continue;
+//                }
+
+                List<GeoPoint> intPoints = new ArrayList<>();
+                intPoints.add(new GeoPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getLatitude(), data.getLongitude()));
+                long latestTime = data.getPrimaryTime() - 1L;
+                for(int i = 1; i < num; i++){
+                    GeoPoint intPoint = getFuzzyGeoPoint(host, metric, latestTime, Shift.BEFORE);
+                    if(intPoint == null){
+                        break;
+                    }
+                    intPoints.add(intPoint);
+                    latestTime = intPoint.getPrimaryTime() -1L;
+                }
+
+                if (result.containsKey(host)) {
+                    result.get(host).put(metric, intPoints);
+                } else {
+                    Map<String, List<GeoPoint>> metricMap = new HashMap<>();
+                    metricMap.put(metric, intPoints);
+                    result.put(host, metricMap);
+                }
+            }
+        } catch (NoHostAvailableException e) {
+            throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
+        } catch (OperationTimedOutException | ReadTimeoutException e) {
+            throw new TimeoutException(e.getMessage(), e.getCause());
+        } catch (QueryExecutionException e) {
+            throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+        }
+
+        return result.size() != 0 ? result : null;
+    }
+
+
+    @Override
     public Map<String, Map<String, GeoPoint>> getGeoLatest(List<String> hosts, List<String> metrics) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
         return getGeoLatest(hosts, metrics, x -> true, x -> true);
     }
@@ -1344,6 +1681,63 @@ public class SagittariusReader implements Reader {
 
         return result.size() != 0 ? result : null;
     }
+
+    @Override
+    public Map<String, Map<String, List<BlobPoint>>> getBlobLatest(List<String> hosts, List<String> metrics, int num) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {
+        Map<String, Map<String, List<BlobPoint>>> result = new HashMap<>();
+
+        try {
+            Result<Latest> latests = getLatestResult(hosts, metrics);
+            Mapper<BlobData> mapperBlob = mappingManager.mapper(BlobData.class);
+
+            for (Latest latest : latests) {
+                String host = latest.getHost();
+                String metric = latest.getMetric();
+                String timeSlice = latest.getTimeSlice();
+                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.INT);
+                //if data type mismatch, then the rs contains nothing.
+                List<BlobData> r = mapperBlob.map(rs).all();
+                if(r.isEmpty()){
+                    continue;
+                }
+                BlobData data = r.get(0);
+
+                // test the lambda expression, if not match, skip
+//                if(!filter.test(data.getValue())){
+//                    continue;
+//                }
+
+                List<BlobPoint> intPoints = new ArrayList<>();
+                intPoints.add(new BlobPoint(metric, data.getPrimaryTime(), data.secondaryTimeUnboxed(), data.getValue()));
+                long latestTime = data.getPrimaryTime() - 1L;
+                for(int i = 1; i < num; i++){
+                    BlobPoint intPoint = getFuzzyBlobPoint(host, metric, latestTime, Shift.BEFORE);
+                    if(intPoint == null){
+                        break;
+                    }
+                    intPoints.add(intPoint);
+                    latestTime = intPoint.getPrimaryTime() -1L;
+                }
+
+                if (result.containsKey(host)) {
+                    result.get(host).put(metric, intPoints);
+                } else {
+                    Map<String, List<BlobPoint>> metricMap = new HashMap<>();
+                    metricMap.put(metric, intPoints);
+                    result.put(host, metricMap);
+                }
+            }
+        } catch (NoHostAvailableException e) {
+            throw new com.sagittarius.exceptions.NoHostAvailableException(e.getMessage(), e.getCause());
+        } catch (OperationTimedOutException | ReadTimeoutException e) {
+            throw new TimeoutException(e.getMessage(), e.getCause());
+        } catch (QueryExecutionException e) {
+            throw new com.sagittarius.exceptions.QueryExecutionException(e.getMessage(), e.getCause());
+        }
+
+        return result.size() != 0 ? result : null;
+    }
+
 
     @Override
     public Map<String, Map<String, BlobPoint>> getBlobLatest(List<String> hosts, List<String> metrics) throws com.sagittarius.exceptions.NoHostAvailableException, TimeoutException, com.sagittarius.exceptions.QueryExecutionException {

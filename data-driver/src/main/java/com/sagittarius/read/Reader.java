@@ -258,6 +258,7 @@ public interface Reader {
      */
     Map<String, Map<String, IntPoint>> getIntLatest(List<String> hosts, List<String> metrics) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
     Map<String, Map<String, IntPoint>> getIntLatest(List<String> hosts, List<String> metrics, Predicate<Integer> filter) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
+    Map<String, Map<String, List<IntPoint>>> getIntLatest(List<String> hosts, List<String> metrics, int num) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
     /**
      * given hosts list and metrics list,each host is associated with the same list of metrics , get LongPoints at the latest time.
@@ -268,6 +269,7 @@ public interface Reader {
      */
     Map<String, Map<String, LongPoint>> getLongLatest(List<String> hosts, List<String> metrics) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
     Map<String, Map<String, LongPoint>> getLongLatest(List<String> hosts, List<String> metrics, Predicate<Long> filter) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
+    Map<String, Map<String, List<LongPoint>>> getLongLatest(List<String> hosts, List<String> metrics, int num) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
     /**
      * given hosts list and metrics list,each host is associated with the same list of metrics , get FloatPoints at the latest time.
@@ -278,6 +280,7 @@ public interface Reader {
      */
     Map<String, Map<String, FloatPoint>> getFloatLatest(List<String> hosts, List<String> metrics) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
     Map<String, Map<String, FloatPoint>> getFloatLatest(List<String> hosts, List<String> metrics, Predicate<Float> filter) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
+    Map<String, Map<String, List<FloatPoint>>> getFloatLatest(List<String> hosts, List<String> metrics, int num) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
     /**
      * given hosts list and metrics list,each host is associated with the same list of metrics , get DoublePoints at the latest time.
@@ -288,6 +291,7 @@ public interface Reader {
      */
     Map<String, Map<String, DoublePoint>> getDoubleLatest(List<String> hosts, List<String> metrics) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
     Map<String, Map<String, DoublePoint>> getDoubleLatest(List<String> hosts, List<String> metrics, Predicate<Double> filter) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
+    Map<String, Map<String, List<DoublePoint>>> getDoubleLatest(List<String> hosts, List<String> metrics, int num) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
     /**
      * given hosts list and metrics list,each host is associated with the same list of metrics , get BooleanPoints at the latest time.
@@ -298,6 +302,7 @@ public interface Reader {
      */
     Map<String, Map<String, BooleanPoint>> getBooleanLatest(List<String> hosts, List<String> metrics) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
     Map<String, Map<String, BooleanPoint>> getBooleanLatest(List<String> hosts, List<String> metrics, Predicate<Boolean> filter) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
+    Map<String, Map<String, List<BooleanPoint>>> getBooleanLatest(List<String> hosts, List<String> metrics, int num) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
     /**
      * given hosts list and metrics list,each host is associated with the same list of metrics , get StringPoints at the latest time.
@@ -308,6 +313,7 @@ public interface Reader {
      */
     Map<String, Map<String, StringPoint>> getStringLatest(List<String> hosts, List<String> metrics) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
     Map<String, Map<String, StringPoint>> getStringLatest(List<String> hosts, List<String> metrics, Predicate<String> filter) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
+    Map<String, Map<String, List<StringPoint>>> getStringLatest(List<String> hosts, List<String> metrics, int num) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
     /**
      * given hosts list and metrics list,each host is associated with the same list of metrics , get GeoPoints at the latest time.
@@ -318,7 +324,9 @@ public interface Reader {
      */
     Map<String, Map<String, GeoPoint>> getGeoLatest(List<String> hosts, List<String> metrics) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
     Map<String, Map<String, GeoPoint>> getGeoLatest(List<String> hosts, List<String> metrics, Predicate<Float> latitudeFilter, Predicate<Float> longitudeFilter) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
-/**
+    Map<String, Map<String, List<GeoPoint>>> getGeoLatest(List<String> hosts, List<String> metrics, int num) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
+
+    /**
      * given hosts list and metrics list,each host is associated with the same list of metrics , get BlobPoints at the latest time.
      *
      * @param hosts   lists of hosts
@@ -327,6 +335,7 @@ public interface Reader {
      */
     Map<String, Map<String, BlobPoint>> getBlobLatest(List<String> hosts, List<String> metrics) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
     Map<String, Map<String, BlobPoint>> getBlobLatest(List<String> hosts, List<String> metrics, Predicate<ByteBuffer> filter) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
+    Map<String, Map<String, List<BlobPoint>>> getBlobLatest(List<String> hosts, List<String> metrics, int num) throws NoHostAvailableException, TimeoutException, QueryExecutionException;
 
     /**
      * given hosts list and metrics list,each host is associated with the same list of metrics , get IntPoints in the given time range.
