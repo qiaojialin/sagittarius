@@ -1058,7 +1058,7 @@ public class SagittariusReader implements Reader {
                 String host = latest.getHost();
                 String metric = latest.getMetric();
                 String timeSlice = latest.getTimeSlice();
-                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.INT);
+                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.LONG);
                 //if data type mismatch, then the rs contains nothing.
                 List<LongData> r = mapperLong.map(rs).all();
                 if(r.isEmpty()){
@@ -1164,7 +1164,7 @@ public class SagittariusReader implements Reader {
                 String host = latest.getHost();
                 String metric = latest.getMetric();
                 String timeSlice = latest.getTimeSlice();
-                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.INT);
+                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.FLOAT);
                 //if data type mismatch, then the rs contains nothing.
                 List<FloatData> r = mapperFloat.map(rs).all();
                 if(r.isEmpty()){
@@ -1270,7 +1270,7 @@ public class SagittariusReader implements Reader {
                 String host = latest.getHost();
                 String metric = latest.getMetric();
                 String timeSlice = latest.getTimeSlice();
-                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.INT);
+                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.DOUBLE);
                 //if data type mismatch, then the rs contains nothing.
                 List<DoubleData> r = mapperDouble.map(rs).all();
                 if(r.isEmpty()){
@@ -1376,7 +1376,7 @@ public class SagittariusReader implements Reader {
                 String host = latest.getHost();
                 String metric = latest.getMetric();
                 String timeSlice = latest.getTimeSlice();
-                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.INT);
+                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.BOOLEAN);
                 //if data type mismatch, then the rs contains nothing.
                 List<BooleanData> r = mapperBoolean.map(rs).all();
                 if(r.isEmpty()){
@@ -1482,7 +1482,7 @@ public class SagittariusReader implements Reader {
                 String host = latest.getHost();
                 String metric = latest.getMetric();
                 String timeSlice = latest.getTimeSlice();
-                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.INT);
+                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.STRING);
                 //if data type mismatch, then the rs contains nothing.
                 List<StringData> r = mapperString.map(rs).all();
                 if(r.isEmpty()){
@@ -1588,7 +1588,7 @@ public class SagittariusReader implements Reader {
                 String host = latest.getHost();
                 String metric = latest.getMetric();
                 String timeSlice = latest.getTimeSlice();
-                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.INT);
+                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.GEO);
                 //if data type mismatch, then the rs contains nothing.
                 List<GeoData> r = mapperGeo.map(rs).all();
                 if(r.isEmpty()){
@@ -1694,7 +1694,7 @@ public class SagittariusReader implements Reader {
                 String host = latest.getHost();
                 String metric = latest.getMetric();
                 String timeSlice = latest.getTimeSlice();
-                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.INT);
+                ResultSet rs = getPointResultSet(host, metric, timeSlice, ValueType.BLOB);
                 //if data type mismatch, then the rs contains nothing.
                 List<BlobData> r = mapperBlob.map(rs).all();
                 if(r.isEmpty()){
