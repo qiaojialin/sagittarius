@@ -20,7 +20,7 @@ import java.nio.ByteBuffer;
 import java.text.ParseException;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.*;
 
 import static com.datastax.driver.mapping.Mapper.Option.saveNullFields;
 
@@ -192,10 +192,24 @@ public class SagittariusWriter implements Writer {
             batchStatement.setConsistencyLevel(ConsistencyLevel.ONE);
         }
 
+        private boolean timeSliceCompare(String targetTimeSlice, String newTimeSlice){
+            int targetYear = Integer.valueOf(targetTimeSlice.substring(0,4));
+            int newYear = Integer.valueOf(newTimeSlice.substring(0,4));
+            int targetSlice = Integer.valueOf(targetTimeSlice.substring(5));
+            int newSlice = Integer.valueOf(newTimeSlice.substring(5));
+            if(newYear > targetYear){
+                return true;
+            }
+            if(newYear == targetYear && newSlice > targetSlice){
+                return true;
+            }
+            return false;
+        }
+
         private void updateLatest(Latest candidate) {
             HostMetricPair pair = new HostMetricPair(candidate.getHost(), candidate.getMetric());
             if (latestData.containsKey(pair)) {
-                if (latestData.get(pair).getTimeSlice().compareTo(candidate.getTimeSlice()) < 0){
+                if (timeSliceCompare(latestData.get(pair).getTimeSlice(),candidate.getTimeSlice())){
                     latestData.put(pair, candidate);
                     BoundStatement statement = preLatestStatement.bind(candidate.getHost(), candidate.getMetric(), candidate.getTimeSlice());
                     batchStatement.add(statement);
