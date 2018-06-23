@@ -1786,7 +1786,7 @@ public class SagittariusReader implements Reader {
         return result.size() != 0 ? result : null;
     }
 
-    private List<String> getRangeQueryString(List<String> hosts, List<String> metrics, long startTime, long endTime, ValueType valueType, boolean desc) {
+    public List<String> getRangeQueryString(List<String> hosts, List<String> metrics, long startTime, long endTime, ValueType valueType, boolean desc) {
         String table = getTableByType(valueType);
         List<HostMetric> hostMetrics = getHostMetrics(hosts, metrics);
         Map<String, Map<String, Set<String>>> timeSliceHostMetric = getTimeSlicePartedHostMetrics(hostMetrics, startTime);
